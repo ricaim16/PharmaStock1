@@ -1,0 +1,249 @@
+// schema.prisma
+model Users {
+  id            String    @id @default(uuid())
+  FirstName     String
+  LastName      String
+  username      String    @unique
+  password      String
+  role          Role      // Use enum for role
+  status        Status    // Use enum for status
+  member        Members?  // One-to-one relationship (optional member profile)
+}
+
+model Members {
+  id            String    @id @default(uuid())
+  user_id       String    @unique  // Ensures one Members record per user
+  FirstName     String
+  LastName      String
+  phone         String?
+  position      String
+  address       String?
+  certificate   String?
+  photo         String?
+  gender        Gender?   // Use enum for gender
+  dob           DateTime?
+  salary        Float
+  joining_date  DateTime
+  status        Status    // Use enum for status
+  biography     String?
+  role          Role      // Add role to Members, synced with Users
+  user          Users     @relation(fields: [user_id], references: [id])
+}
+
+
+
+model Users {
+  id            String    @id @default(uuid())
+  FirstName     String
+  LastName      String
+  username      String    @unique
+  password      String
+  role          Role      // Use enum for role
+  status        Status    // Use enum for status
+  member        Members?  // One-to-one relationship (optional member profile)
+}
+
+model Members {
+  id            String    @id @default(uuid())
+  user_id       String    @unique  // Ensures one Members record per user
+  FirstName     String
+  LastName      String
+  phone         String?
+  position      String
+  address       String?
+  certificate   String?
+  photo         String?
+  gender        Gender?   // Use enum for gender
+  dob           DateTime?
+  salary        Float
+  joining_date  DateTime
+  status        Status    // Use enum for status
+  biography     String?
+  role          Role      // Add role to Members, synced with Users
+  user          Users     @relation(fields: [user_id], references: [id])
+}
+
+
+
+// Suppliers Table
+model Suppliers {
+  id                   Int       @id @default(autoincrement())
+  supplier_name        String
+  contact_info         String
+  payment_info_cbe     String?
+  payment_info_coop    String?
+  payment_info_boa     String?
+  payment_info_awash   String?
+  payment_info_ebirr   String?
+  location             String
+  email                String
+  SupplierCredits      SupplierCredits[]
+  Medicines            Medicines[]
+}
+
+// Categories Table
+model Categories {
+  id         Int       @id @default(autoincrement())
+  name       String
+  Medicines  Medicines[]
+}
+
+// DosageForms Table
+model DosageForms {
+  id         Int       @id @default(autoincrement())
+  name       String
+  Medicines  Medicines[]
+  Sales      Sales[]
+  Returns    Returns[]
+}
+
+// Medicines Table
+model Medicines {
+  id                     Int       @id @default(autoincrement())
+  medicine_name          String
+  brand_name             String
+  batch_number           String
+  category_id            Int
+  dosage_form_id         Int
+  medicine_weight        Float
+  quantity               Int
+  supplier_id            Int
+  invoice_number         String
+  unit_price             Float
+  sell_price             Float
+  total_price            Float
+  expire_date            DateTime
+  required_prescription  Boolean
+  payment_method         String
+  Payment_file           String?
+  details                String?
+
+  // Relations
+  category               Categories    @relation(fields: [category_id], references: [id])
+  dosage_form            DosageForms   @relation(fields: [dosage_form_id], references: [id])
+  supplier               Suppliers     @relation(fields: [supplier_id], references: [id])
+  Sales                  Sales[]       // Relation to Sales
+  Returns                Returns[]     // Relation to Returns
+}
+
+// Sales Table
+model Sales {
+  id                     Int       @id @default(autoincrement())
+  product_name           String
+  product_batch_number   String
+  Quantity               Int
+  price                  Float
+  total_amount           Float
+  payment_method         String
+  prescription           Boolean
+  dosage_form_id         Int
+  customer_id            Int
+  sealed_date            DateTime
+
+  // Relation to DosageForms
+  dosage_form            DosageForms @relation(fields: [dosage_form_id], references: [id])
+
+  // Relation to Customers
+  customer               Customers   @relation(fields: [customer_id], references: [id])
+
+  // Relation to Medicines
+  medicine_id            Int         // Foreign key field
+  medicine               Medicines   @relation(fields: [medicine_id], references: [id])
+}
+
+// Expenses Table
+model Expenses {
+  id              Int       @id @default(autoincrement())
+  date            DateTime
+  reason          String
+  payment_method  String
+  receipt         String?
+  amount          Float
+  description     String?
+  additional_info String?
+}
+
+// Returns Table
+model Returns {
+  id                   Int       @id @default(autoincrement())
+  product_name         String
+  product_batch_number String
+  dosage_form_id       Int
+  return_date          DateTime
+  reason_for_return    String
+  quantity             Int
+
+  // Relation to DosageForms
+  dosage_form          DosageForms @relation(fields: [dosage_form_id], references: [id])
+
+  // Relation to Medicines
+  medicine_id          Int         // Foreign key field
+  medicine             Medicines   @relation(fields: [medicine_id], references: [id])
+}
+
+// Customers Table
+model Customers {
+  id           Int       @id @default(autoincrement())
+  name         String
+  phone        String
+  address      String
+  status       String
+
+  // Relations
+  Sales        Sales[]               // Relation to Sales
+  CustomerCredit CustomerCredit[]    // Relation to CustomerCredit
+}
+
+// SupplierCredits Table
+model SupplierCredits {
+  id               Int       @id @default(autoincrement())
+  supplier_id      Int
+  credit_amount    Float
+  description      String?
+  status           String
+  credit_date      DateTime
+  payment_file     String?
+
+  // Relation to Suppliers
+  supplier         Suppliers @relation(fields: [supplier_id], references: [id])
+}
+
+// CustomerCredit Table
+model CustomerCredit {
+  id               Int       @id @default(autoincrement())
+  customer_id      Int
+  credit_amount    Float
+  description      String?
+  status           String
+  credit_date      DateTime
+  payment_file     String?
+
+  // Relation to Customers
+  customer         Customers @relation(fields: [customer_id], references: [id])
+}
+
+// Objectives Table
+model Objectives {
+  id            Int       @id @default(autoincrement())
+  title         String
+  description   String
+  time_period   String
+  progress      Float
+
+  // Relation to KeyResults
+  KeyResults    KeyResults[]
+}
+
+// KeyResults Table
+model KeyResults {
+  id            Int       @id @default(autoincrement())
+  objective_id  Int
+  title         String
+  description   String
+  weight        Float
+  deadline      DateTime
+  progress      Float
+
+  // Relation to Objectives
+  objective     Objectives @relation(fields: [objective_id], references: [id])
+}
