@@ -1,68 +1,62 @@
-// schema.prisma
+/// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // Adjust to "sqlite" if using SQLite locally
+  url      = env("DATABASE_URL")
+}
+
+// Enums for role, status, and gender
+enum Role {
+  MANAGER
+  EMPLOYEE
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+// Users table
 model Users {
-  id            String    @id @default(uuid())
-  FirstName     String
-  LastName      String
-  username      String    @unique
-  password      String
-  role          Role      // Use enum for role
-  status        Status    // Use enum for status
-  member        Members?  // One-to-one relationship (optional member profile)
+  id        String   @id @default(uuid())
+  FirstName String
+  LastName  String
+  username  String   @unique
+  password  String
+  role      Role
+  status    Status   @default(ACTIVE)
+  member    Members? // Relation without explicit name
 }
 
+// Members table
 model Members {
-  id            String    @id @default(uuid())
-  user_id       String    @unique  // Ensures one Members record per user
-  FirstName     String
-  LastName      String
-  phone         String?
-  position      String
-  address       String?
-  certificate   String?
-  photo         String?
-  gender        Gender?   // Use enum for gender
-  dob           DateTime?
-  salary        Float
-  joining_date  DateTime
-  status        Status    // Use enum for status
-  biography     String?
-  role          Role      // Add role to Members, synced with Users
-  user          Users     @relation(fields: [user_id], references: [id])
+  id           String   @id @default(uuid())
+  user_id      String   @unique
+  FirstName    String
+  LastName     String
+  phone        String?
+  position     String
+  address      String?
+  certificate  String?
+  photo        String?
+  gender       Gender?
+  dob          DateTime?
+  salary       Float
+  joining_date DateTime
+  status       Status   @default(ACTIVE)
+  role         Role
+  biography    String?
+  user         Users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
-
-
-
-model Users {
-  id            String    @id @default(uuid())
-  FirstName     String
-  LastName      String
-  username      String    @unique
-  password      String
-  role          Role      // Use enum for role
-  status        Status    // Use enum for status
-  member        Members?  // One-to-one relationship (optional member profile)
-}
-
-model Members {
-  id            String    @id @default(uuid())
-  user_id       String    @unique  // Ensures one Members record per user
-  FirstName     String
-  LastName      String
-  phone         String?
-  position      String
-  address       String?
-  certificate   String?
-  photo         String?
-  gender        Gender?   // Use enum for gender
-  dob           DateTime?
-  salary        Float
-  joining_date  DateTime
-  status        Status    // Use enum for status
-  biography     String?
-  role          Role      // Add role to Members, synced with Users
-  user          Users     @relation(fields: [user_id], references: [id])
-}
-
 
 
 // Suppliers Table

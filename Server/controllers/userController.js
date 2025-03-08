@@ -1,45 +1,59 @@
 import prisma from "../config/db.js";
 import { hashPassword, comparePassword } from "../utils/hashPassword.js";
 import jwt from "jsonwebtoken";
+import log from "../utils/logger.js"; // Import your logger
 
 // Create User (Manager only, no additional managers)
 export const createUser = async (req, res, next) => {
   try {
     const { FirstName, LastName, username, password, role, status } = req.body;
 
+    // Validate required fields
     if (!FirstName || !LastName || !username || !password || !role || !status) {
       return res.status(400).json({ error: "All fields are required" });
     }
 
+    // Check if the requester is a manager
     if (req.user.role !== "MANAGER") {
       return res.status(403).json({ error: "Only managers can create users" });
     }
 
-    if (role.toUpperCase() === "MANAGER") {
-      const existingManager = await prisma.users.findFirst({
-        where: { role: "MANAGER" },
-      });
-      if (existingManager) {
-        return res.status(403).json({ error: "Only one manager is allowed" });
-      }
-    }
+    // Normalize role and status
+    const normalizedRole = role.toUpperCase();
+    const normalizedStatus = status.toUpperCase();
 
+    // Check for duplicate username
     const existingUser = await prisma.users.findUnique({ where: { username } });
     if (existingUser) {
       return res.status(400).json({ error: "Username already exists" });
     }
 
+    // Hash the password
     const hashedPassword = await hashPassword(password);
 
-    const user = await prisma.users.create({
-      data: {
-        FirstName,
-        LastName,
-        username,
-        password: hashedPassword,
-        role: role.toUpperCase(),
-        status: status.toUpperCase(),
-      },
+    // Use a transaction to ensure atomicity
+    const user = await prisma.$transaction(async (prisma) => {
+      // Enforce single manager rule
+      if (normalizedRole === "MANAGER") {
+        const managerCount = await prisma.users.count({
+          where: { role: "MANAGER" },
+        });
+        if (managerCount > 0) {
+          throw new Error("Only one manager is allowed");
+        }
+      }
+
+      // Create the user
+      return prisma.users.create({
+        data: {
+          FirstName,
+          LastName,
+          username,
+          password: hashedPassword,
+          role: normalizedRole,
+          status: normalizedStatus,
+        },
+      });
     });
 
     console.log("Created User:", user);
@@ -56,6 +70,9 @@ export const createUser = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Error in createUser:", error);
+    if (error.message === "Only one manager is allowed") {
+      return res.status(403).json({ error: error.message });
+    }
     next(error);
   }
 };
@@ -118,6 +135,7 @@ export const getUserById = async (req, res, next) => {
       FirstName: user.FirstName,
       LastName: user.LastName,
       username: user.username,
+      Password: user.password, // Include hashed password
       role: user.role,
       status: user.status,
       member: user.member,
@@ -146,6 +164,30 @@ export const updateUser = async (req, res, next) => {
         .json({ error: "You can only update your own account" });
     }
 
+    // Prevent manager from updating their own role or status
+    if (req.user.role === "MANAGER" && id === req.user.id) {
+      if (role !== undefined || status !== undefined) {
+        return res
+          .status(403)
+          .json({ error: "Manager cannot update their own role or status" });
+      }
+    }
+
+    // Enforce single manager rule for role updates (for other users)
+    if (
+      req.user.role === "MANAGER" &&
+      role &&
+      role.toUpperCase() === "MANAGER" &&
+      id !== req.user.id
+    ) {
+      const existingManager = await prisma.users.findFirst({
+        where: { role: "MANAGER" },
+      });
+      if (existingManager && existingManager.id !== id) {
+        return res.status(403).json({ error: "Only one manager is allowed" });
+      }
+    }
+
     // Check for username uniqueness if provided
     if (username && username !== user.username) {
       const existingUser = await prisma.users.findUnique({
@@ -161,21 +203,28 @@ export const updateUser = async (req, res, next) => {
     // Prepare update data
     const updateData = {};
 
-    // Employee restrictions: only FirstName, LastName, username, password
     if (req.user.role === "EMPLOYEE") {
+      // Employee restrictions: only FirstName, LastName, username, password
       if (FirstName) updateData.FirstName = FirstName;
       if (LastName) updateData.LastName = LastName;
       if (username) updateData.username = username;
       if (hashedPassword) updateData.password = hashedPassword;
-      // Ignore role and status for employees
     } else if (req.user.role === "MANAGER") {
-      // Manager can update all fields
-      updateData.FirstName = FirstName ?? user.FirstName;
-      updateData.LastName = LastName ?? user.LastName;
-      updateData.username = username ?? user.username;
-      updateData.password = hashedPassword ?? user.password;
-      updateData.role = role ? role.toUpperCase() : user.role;
-      updateData.status = status ? status.toUpperCase() : user.status;
+      if (id === req.user.id) {
+        // Manager updating self: only allow FirstName, LastName, username, password
+        if (FirstName) updateData.FirstName = FirstName;
+        if (LastName) updateData.LastName = LastName;
+        if (username) updateData.username = username;
+        if (hashedPassword) updateData.password = hashedPassword;
+      } else {
+        // Manager updating others: can update all fields
+        updateData.FirstName = FirstName ?? user.FirstName;
+        updateData.LastName = LastName ?? user.LastName;
+        updateData.username = username ?? user.username;
+        if (hashedPassword) updateData.password = hashedPassword;
+        updateData.role = role ? role.toUpperCase() : user.role;
+        updateData.status = status ? status.toUpperCase() : user.status;
+      }
     }
 
     // Update the user
@@ -204,6 +253,7 @@ export const updateUser = async (req, res, next) => {
         FirstName: updatedUser.FirstName,
         LastName: updatedUser.LastName,
         username: updatedUser.username,
+        Password: updatedUser.password, // Include hashed password
         role: updatedUser.role,
         status: updatedUser.status,
       },

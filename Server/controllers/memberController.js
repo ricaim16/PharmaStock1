@@ -17,8 +17,6 @@ export const createMember = async (req, res, next) => {
       role,
       position,
       address,
-      certificate,
-      photo,
       gender,
       dob,
       salary,
@@ -75,30 +73,43 @@ export const createMember = async (req, res, next) => {
       });
     }
 
-    const member = await prisma.members.create({
-      data: {
-        user_id,
-        FirstName,
-        LastName,
-        phone,
-        position,
-        address,
-        certificate,
-        photo,
-        gender: gender ? gender.toUpperCase() : null,
-        dob: dob ? new Date(dob) : null,
-        salary: parseFloat(salary),
-        joining_date: new Date(joining_date),
-        status: status.toUpperCase(),
-        role: role.toUpperCase(),
-        biography,
-      },
-    });
+    const memberData = {
+      user_id,
+      FirstName,
+      LastName,
+      phone: phone || null,
+      position,
+      address: address || null,
+      certificate:
+        req.files?.certificate && req.files.certificate[0]?.path
+          ? req.files.certificate[0].path
+          : null,
+      photo:
+        req.files?.photo && req.files.photo[0]?.path
+          ? req.files.photo[0].path
+          : null,
+      gender: gender ? gender.toUpperCase() : null,
+      dob: dob ? new Date(dob) : null,
+      salary: parseFloat(salary),
+      joining_date: new Date(joining_date),
+      status: status.toUpperCase(),
+      role: role.toUpperCase(),
+      biography: biography || null,
+    };
+
+    const member = await prisma.members.create({ data: memberData });
 
     console.log("Created Member:", member);
     res.status(201).json({ message: "Member created successfully", member });
   } catch (error) {
     console.error("Error in createMember:", error);
+    if (error.code === "ENOENT") {
+      return res.status(500).json({
+        error:
+          "File upload failed: Unable to save file to the specified directory",
+        details: error.message,
+      });
+    }
     next(error);
   }
 };
@@ -180,8 +191,6 @@ export const updateMember = async (req, res, next) => {
       role,
       position,
       address,
-      certificate,
-      photo,
       gender,
       dob,
       salary,
@@ -218,8 +227,14 @@ export const updateMember = async (req, res, next) => {
       phone: phone ?? member.phone,
       position: position ?? member.position,
       address: address ?? member.address,
-      certificate: certificate ?? member.certificate,
-      photo: photo ?? member.photo,
+      certificate:
+        req.files?.certificate && req.files.certificate[0]?.path
+          ? req.files.certificate[0].path
+          : member.certificate,
+      photo:
+        req.files?.photo && req.files.photo[0]?.path
+          ? req.files.photo[0].path
+          : member.photo,
       gender: gender ? gender.toUpperCase() : member.gender,
       dob: dob ? new Date(dob) : member.dob,
       salary: salary !== undefined ? parseFloat(salary) : member.salary,
@@ -241,12 +256,18 @@ export const updateMember = async (req, res, next) => {
     });
   } catch (error) {
     console.error(`Error in updateMember for ID ${req.params.id}:`, error);
+    if (error.code === "ENOENT") {
+      return res.status(500).json({
+        error:
+          "File upload failed: Unable to save file to the specified directory",
+        details: error.message,
+      });
+    }
     next(error);
   }
 };
 
 // Update Self Member (Employee only, restricted fields, sync to Users)
-
 export const updateSelfMember = async (req, res, next) => {
   try {
     if (req.user.role !== "EMPLOYEE") {
@@ -263,21 +284,8 @@ export const updateSelfMember = async (req, res, next) => {
       return res.status(404).json({ error: "Member profile not found" });
     }
 
-    const {
-      FirstName,
-      LastName,
-      phone,
-      address,
-      certificate,
-      photo,
-      gender,
-      dob,
-      biography,
-      role, // Ignored for employees
-      status, // Ignored for employees
-      salary, // Ignored for employees
-      joining_date, // Ignored for employees
-    } = req.body;
+    const { FirstName, LastName, phone, address, gender, dob, biography } =
+      req.body;
 
     // Sync FirstName and LastName to Users
     const userUpdates = {};
@@ -299,12 +307,17 @@ export const updateSelfMember = async (req, res, next) => {
       LastName: LastName ?? member.LastName,
       phone: phone ?? member.phone,
       address: address ?? member.address,
-      certificate: certificate ?? member.certificate,
-      photo: photo ?? member.photo,
+      certificate:
+        req.files?.certificate && req.files.certificate[0]?.path
+          ? req.files.certificate[0].path
+          : member.certificate,
+      photo:
+        req.files?.photo && req.files.photo[0]?.path
+          ? req.files.photo[0].path
+          : member.photo,
       gender: gender ? gender.toUpperCase() : member.gender,
       dob: dob ? new Date(dob) : member.dob,
       biography: biography ?? member.biography,
-      // role, status, salary, joining_date are ignored for employees
     };
 
     const updatedMember = await prisma.members.update({
@@ -312,9 +325,19 @@ export const updateSelfMember = async (req, res, next) => {
       data: memberUpdateData,
     });
 
-  
+    res.status(200).json({
+      message: "Member profile updated successfully",
+      member: updatedMember,
+    });
   } catch (error) {
     console.error("Error in updateSelfMember:", error);
+    if (error.code === "ENOENT") {
+      return res.status(500).json({
+        error:
+          "File upload failed: Unable to save file to the specified directory",
+        details: error.message,
+      });
+    }
     next(error);
   }
 };
