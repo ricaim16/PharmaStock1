@@ -1,4 +1,3 @@
-// src/components/Sidebar.jsx
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { getUserRole } from "../utils/auth";
@@ -19,15 +18,15 @@ const Sidebar = () => {
     { path: "/return-management", label: "Return Management" },
     { path: "/customer-management", label: "Customer Management" },
     { path: "/credit-management", label: "Credit Management" },
-    { path: "/expense-management", label: "Expense Management" },
     ...(role === "MANAGER"
       ? [
+          { path: "/expense-management", label: "Expense Management" },
           { path: "/member-management", label: "Member Management" },
           { path: "/user-management", label: "User Management" },
+          { path: "/okr", label: "OKR" },
+          { path: "/predictive-analysis", label: "Predictive Analysis" },
         ]
       : []),
-    { path: "/okr", label: "OKR" },
-    { path: "/predictive-analysis", label: "Predictive Analysis" },
     { path: "/notifications", label: "Notifications" },
   ];
 
