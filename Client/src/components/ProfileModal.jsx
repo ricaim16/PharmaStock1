@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getUserById, updateUser } from "../utils/auth";
+import { getUserById, updateUser } from "../api/userApi";
 
 const ProfileModal = ({ userId, onClose }) => {
   const [formData, setFormData] = useState({
@@ -38,7 +38,12 @@ const ProfileModal = ({ userId, onClose }) => {
       localStorage.setItem("username", formData.username); // Update stored username
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to update profile");
+      // Check if the error is specifically about username conflict
+      const errorMessage =
+        err === "Username already exists"
+          ? "Username already exists"
+          : err.response?.data?.error || "Failed to update profile";
+      setError(errorMessage);
     }
   };
 

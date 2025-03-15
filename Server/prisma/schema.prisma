@@ -1,15 +1,13 @@
-/// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql" // Adjust to "sqlite" if using SQLite locally
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// Enums for role, status, and gender
+// Enums for role, status, gender, payment status, and transaction type
 enum Role {
   MANAGER
   EMPLOYEE
@@ -25,16 +23,30 @@ enum Gender {
   FEMALE
 }
 
+enum PaymentStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+}
+
+enum TransactionType {
+  LOAN
+  PAYMENT
+  PURCHASE  // Consolidated into one enum
+}
+
 // Users table
 model Users {
-  id        String   @id @default(uuid())
+  id        String           @id @default(uuid())
   FirstName String
   LastName  String
-  username  String   @unique
+  username  String           @unique
   password  String
   role      Role
-  status    Status   @default(ACTIVE)
-  member    Members? // Relation without explicit name
+  status    Status           @default(ACTIVE)
+  member    Members?         // Relation to Members
+credits   SupplierCredits[] @relation
+
 }
 
 // Members table
@@ -58,21 +70,21 @@ model Members {
   user         Users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
-
-// Suppliers Table
+// Suppliers table
 model Suppliers {
-  id                   Int       @id @default(autoincrement())
-  supplier_name        String
-  contact_info         String
-  payment_info_cbe     String?
-  payment_info_coop    String?
-  payment_info_boa     String?
-  payment_info_awash   String?
-  payment_info_ebirr   String?
-  location             String
-  email                String
-  SupplierCredits      SupplierCredits[]
-  Medicines            Medicines[]
+  id                String      @id @default(uuid())
+  supplier_name     String
+  contact_info      String
+  payment_info_cbe  String?
+  payment_info_coop String?
+  payment_info_boa  String?
+  payment_info_awash String?
+  payment_info_ebirr String?
+  location          String
+  email             String?
+  photo             String?
+  SupplierCredits   SupplierCredits[]
+  Medicines         Medicines[]
 }
 
 // Categories Table
@@ -93,7 +105,7 @@ model DosageForms {
 
 // Medicines Table
 model Medicines {
-  id                     Int       @id @default(autoincrement())
+  id                     String   @id @default(uuid())
   medicine_name          String
   brand_name             String
   batch_number           String
@@ -101,7 +113,7 @@ model Medicines {
   dosage_form_id         Int
   medicine_weight        Float
   quantity               Int
-  supplier_id            Int
+  supplier_id            String
   invoice_number         String
   unit_price             Float
   sell_price             Float
@@ -111,13 +123,11 @@ model Medicines {
   payment_method         String
   Payment_file           String?
   details                String?
-
-  // Relations
   category               Categories    @relation(fields: [category_id], references: [id])
   dosage_form            DosageForms   @relation(fields: [dosage_form_id], references: [id])
-  supplier               Suppliers     @relation(fields: [supplier_id], references: [id])
-  Sales                  Sales[]       // Relation to Sales
-  Returns                Returns[]     // Relation to Returns
+  supplier               Suppliers      @relation(fields: [supplier_id], references: [id])
+  Sales                  Sales[]
+  Returns                Returns[]
 }
 
 // Sales Table
@@ -133,15 +143,9 @@ model Sales {
   dosage_form_id         Int
   customer_id            Int
   sealed_date            DateTime
-
-  // Relation to DosageForms
+  medicine_id            String
   dosage_form            DosageForms @relation(fields: [dosage_form_id], references: [id])
-
-  // Relation to Customers
   customer               Customers   @relation(fields: [customer_id], references: [id])
-
-  // Relation to Medicines
-  medicine_id            Int         // Foreign key field
   medicine               Medicines   @relation(fields: [medicine_id], references: [id])
 }
 
@@ -166,40 +170,39 @@ model Returns {
   return_date          DateTime
   reason_for_return    String
   quantity             Int
-
-  // Relation to DosageForms
+  medicine_id          String
   dosage_form          DosageForms @relation(fields: [dosage_form_id], references: [id])
-
-  // Relation to Medicines
-  medicine_id          Int         // Foreign key field
-  medicine             Medicines   @relation(fields: [medicine_id], references: [id])
+  medicine             Medicines    @relation(fields: [medicine_id], references: [id])
 }
 
 // Customers Table
 model Customers {
-  id           Int       @id @default(autoincrement())
-  name         String
-  phone        String
-  address      String
-  status       String
-
-  // Relations
-  Sales        Sales[]               // Relation to Sales
-  CustomerCredit CustomerCredit[]    // Relation to CustomerCredit
+  id               Int       @id @default(autoincrement())
+  name             String
+  phone            String
+  address          String
+  status           String
+  Sales            Sales[]
+  CustomerCredit   CustomerCredit[]
 }
 
 // SupplierCredits Table
 model SupplierCredits {
-  id               Int       @id @default(autoincrement())
-  supplier_id      Int
-  credit_amount    Float
-  description      String?
-  status           String
-  credit_date      DateTime
-  payment_file     String?
+  id                String        @id @default(uuid())
+  supplier_id       String
+  credit_amount     Float
+  paid_amount       Float         @default(0)
+  description       String?
+  transaction_type  TransactionType
+  payment_status    PaymentStatus @default(PENDING)
+  credit_date       DateTime
+  payment_file      String?
+  created_by        String
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
 
-  // Relation to Suppliers
-  supplier         Suppliers @relation(fields: [supplier_id], references: [id])
+  supplier          Suppliers     @relation(fields: [supplier_id], references: [id])
+  user              Users         @relation(fields: [created_by], references: [id])
 }
 
 // CustomerCredit Table
@@ -211,8 +214,6 @@ model CustomerCredit {
   status           String
   credit_date      DateTime
   payment_file     String?
-
-  // Relation to Customers
   customer         Customers @relation(fields: [customer_id], references: [id])
 }
 
@@ -223,8 +224,6 @@ model Objectives {
   description   String
   time_period   String
   progress      Float
-
-  // Relation to KeyResults
   KeyResults    KeyResults[]
 }
 
@@ -237,7 +236,5 @@ model KeyResults {
   weight        Float
   deadline      DateTime
   progress      Float
-
-  // Relation to Objectives
   objective     Objectives @relation(fields: [objective_id], references: [id])
 }

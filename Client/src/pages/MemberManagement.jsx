@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import MemberForm from "../components/MemberForm";
 import MemberList from "../components/MemberList";
-import { getToken, getUserRole, getAllUsers } from "../utils/auth";
+import { getToken, getUserRole } from "../utils/auth"; // Removed getAllUsers from here
+import { getAllUsers } from "../api/userApi";
 
 const MemberManagement = () => {
   const navigate = useNavigate();

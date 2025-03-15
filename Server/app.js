@@ -3,6 +3,7 @@ import cors from "cors";
 import userRoutes from "./routes/userRoutes.js";
 import memberRoutes from "./routes/memberRoutes.js";
 import { errorHandler } from "./middlewares/auth.js";
+import supplierRoutes from "./routes/supplierRoutes.js";
 
 const app = express();
 
@@ -20,6 +21,8 @@ app.get("/", (req, res) => {
 app.use("/api/users", userRoutes);
 // Members routes
 app.use("/api/members", memberRoutes);
+// Routes
+app.use("/api/suppliers", supplierRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { createMember, updateMember } from "../utils/auth";
+import { createMember, updateMember } from "../api/memberApi";
 
 const MemberForm = ({ member, onMemberSaved, users, onClose }) => {
   const [formData, setFormData] = useState({

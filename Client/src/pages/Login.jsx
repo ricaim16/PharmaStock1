@@ -1,5 +1,7 @@
+// components/Login.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { loginUser } from "../utils/auth";
 
 const Login = () => {
@@ -8,27 +10,41 @@ const Login = () => {
   const [role, setRole] = useState("EMPLOYEE");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     console.log("Attempting login with:", { username, password, role });
+
+    setError(""); // Clear previous error
+
     if (!username || !password || !role) {
       setError("Please fill all fields!");
-      console.log("Validation failed:", error);
       return;
     }
 
     try {
-      const response = await loginUser(username, password, role);
-      console.log("Login successful. Response:", response);
-      console.log("Navigating to /dashboard");
+      const { token, user } = await loginUser(username, password, role);
+      login(token, user.role);
+      console.log("Login successful. Response:", { token, user });
       navigate("/dashboard");
     } catch (err) {
       console.error("Login error details:", {
-        message: err.message,
+        message: err.message || err,
         response: err.response?.data || "No response data",
+        status: err.response?.status,
       });
-      setError(err.response?.data?.error || "Login failed");
+
+      // Handle specific error cases
+      if (err.response?.status === 401 || err === "Invalid credentials") {
+        setError("Invalid credentials");
+      } else if (err.response?.status === 404) {
+        setError("Login service unavailable. Please try again later.");
+      } else if (err.response?.status === 400) {
+        setError("Invalid request. Please check your inputs.");
+      } else {
+        setError("Login failed. Please try again.");
+      }
     }
   };
 

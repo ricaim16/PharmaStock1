@@ -1,3 +1,4 @@
+// src/components/Sidebar.jsx
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { getUserRole } from "../utils/auth";
@@ -17,7 +18,7 @@ const Sidebar = () => {
     { path: "/sales-management", label: "Sales Management" },
     { path: "/return-management", label: "Return Management" },
     { path: "/customer-management", label: "Customer Management" },
-    { path: "/credit-management", label: "Credit Management" },
+    { path: "/credit-management", label: "Credit Management" }, // Matches App.jsx
     ...(role === "MANAGER"
       ? [
           { path: "/expense-management", label: "Expense Management" },

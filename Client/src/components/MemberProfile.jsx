@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getAllMembers, updateSelfMember } from "../utils/auth";
+import { getAllMembers, updateSelfMember } from "../api/memberApi";
 
 const MemberProfile = ({ isFullScreen = false, onClose }) => {
   const [member, setMember] = useState(null);

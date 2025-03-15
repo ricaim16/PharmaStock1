@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { getAllMembers, deleteMember } from "../utils/auth";
+import { getAllMembers, deleteMember } from "../api/memberApi";
+
 import MemberDetailsModal from "./MemberDetailsModal";
 
 const MemberList = ({ onEdit }) => {
