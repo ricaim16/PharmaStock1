@@ -46,7 +46,7 @@ const SupplierCreditList = ({ onView, setError, refresh }) => {
             <th className="py-2 px-4 border-b text-left">Paid Amount</th>
             <th className="py-2 px-4 border-b text-left">Status</th>
             <th className="py-2 px-4 border-b text-left">Description</th>
-            <th className="py-2 px-4 border-b text-left">Transaction Type</th>
+            <th className="py-2 px-4 border-b text-left">Payment Method</th>
             <th className="py-2 px-4 border-b text-left">Actions</th>
           </tr>
         </thead>
@@ -63,9 +63,7 @@ const SupplierCreditList = ({ onView, setError, refresh }) => {
                 <td className="py-2 px-4 border-b">
                   {credit.description || "N/A"}
                 </td>
-                <td className="py-2 px-4 border-b">
-                  {credit.transaction_type}
-                </td>
+                <td className="py-2 px-4 border-b">{credit.payment_method}</td>
                 <td className="py-2 px-4 border-b">
                   <button
                     onClick={() => onView(credit)}

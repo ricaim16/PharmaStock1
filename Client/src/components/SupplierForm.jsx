@@ -29,7 +29,7 @@ const SupplierForm = ({ supplier, onSupplierSaved, onClose }) => {
         payment_info_ebirr: supplier.payment_info_ebirr || "",
         location: supplier.location || "",
         email: supplier.email || "",
-        photo: null, // Reset photo for editing
+        photo: null,
       });
     }
   }, [supplier]);
@@ -49,20 +49,18 @@ const SupplierForm = ({ supplier, onSupplierSaved, onClose }) => {
 
     const data = new FormData();
     Object.keys(formData).forEach((key) => {
-      if (formData[key] !== null) {
+      if (formData[key] !== null && formData[key] !== undefined) {
         data.append(key, formData[key]);
       }
     });
 
-    // Log FormData contents for debugging
-    console.log("FormData contents:");
-    for (let pair of data.entries()) {
-      console.log(`${pair[0]}: ${pair[1]}`);
-    }
-
     try {
       let response;
-      if (supplier && supplier.id) {
+      if (supplier?.id) {
+        // For update, only send photo if a new one is selected
+        if (!formData.photo) {
+          data.delete("photo");
+        }
         response = await updateSupplier(supplier.id, data);
       } else {
         response = await createSupplier(data);
@@ -72,7 +70,7 @@ const SupplierForm = ({ supplier, onSupplierSaved, onClose }) => {
       onClose();
     } catch (err) {
       console.error("Supplier save error:", err);
-      setError(err || "Failed to save supplier"); // Use thrown error directly
+      setError(err || "Failed to save supplier");
     } finally {
       setLoading(false);
     }
@@ -88,7 +86,7 @@ const SupplierForm = ({ supplier, onSupplierSaved, onClose }) => {
           ✕
         </button>
         <h2 className="text-xl font-bold mb-4">
-          {supplier && supplier.id ? "Edit Supplier" : "Add New Supplier"}
+          {supplier?.id ? "Edit Supplier" : "Add New Supplier"}
         </h2>
         {error && <p className="text-red-500 mb-4">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -212,17 +210,26 @@ const SupplierForm = ({ supplier, onSupplierSaved, onClose }) => {
                 type="file"
                 name="photo"
                 onChange={handleChange}
+                accept="image/*"
                 className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              {supplier?.photo && (
-                <a
-                  href={`http://localhost:5000/uploads/${supplier.photo}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 mt-2 block"
-                >
-                  View Current Photo
-                </a>
+              {supplier?.photo && !formData.photo && (
+                <div className="mt-2">
+                  <img
+                    src={`http://localhost:5000/uploads/${
+                      supplier.photo
+                    }?t=${Date.now()}`}
+                    alt="Current supplier"
+                    className="w-32 h-32 object-cover rounded"
+                    onError={(e) => {
+                      console.error(`Failed to load image: ${supplier.photo}`);
+                      e.target.src = "/fallback-image.jpg";
+                    }}
+                  />
+                  <p className="text-sm text-gray-600">
+                    Current photo (select new file to replace)
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -240,11 +247,7 @@ const SupplierForm = ({ supplier, onSupplierSaved, onClose }) => {
               disabled={loading}
               className="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-400"
             >
-              {loading
-                ? "Saving..."
-                : supplier && supplier.id
-                ? "Update"
-                : "Add"}
+              {loading ? "Saving..." : supplier?.id ? "Update" : "Add"}
             </button>
           </div>
         </form>

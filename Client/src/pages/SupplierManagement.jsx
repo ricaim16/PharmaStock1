@@ -12,7 +12,7 @@ const SupplierManagement = () => {
   const [viewSupplier, setViewSupplier] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0); // For refreshing SupplierList
+  const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -38,8 +38,8 @@ const SupplierManagement = () => {
   const handleSupplierSaved = () => {
     setIsFormOpen(false);
     setSelectedSupplier(null);
-    setRefreshKey((prev) => prev + 1); // Trigger list refresh
-    setViewSupplier(null); // Close view modal after saving
+    setRefreshKey((prev) => prev + 1);
+    setViewSupplier(null);
   };
 
   const handleClose = () => {
@@ -67,7 +67,7 @@ const SupplierManagement = () => {
         </div>
         {error && <div className="text-red-500 mb-4">{error}</div>}
         <SupplierList
-          onView={handleView} // Only pass onView
+          onView={handleView}
           setError={setError}
           refresh={refreshKey}
         />
@@ -75,7 +75,7 @@ const SupplierManagement = () => {
           <SupplierDetailsModal
             supplier={viewSupplier}
             onClose={handleClose}
-            onEdit={role === "MANAGER" ? handleEdit : null} // Pass handleEdit to modal
+            onEdit={role === "MANAGER" ? handleEdit : null}
           />
         )}
         {isFormOpen && (

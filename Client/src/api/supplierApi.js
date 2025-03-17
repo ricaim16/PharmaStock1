@@ -10,16 +10,35 @@ export const getAllSuppliers = async () => {
       error.response?.data || error.message
     );
     throw (
-      error.response?.data?.error ||
+      error.response?.data?.message ||
       error.message ||
       "Failed to fetch suppliers"
     );
   }
 };
 
+export const getSupplierById = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/suppliers/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Get supplier by ID error:",
+      error.response?.data || error.message
+    );
+    throw (
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to fetch supplier"
+    );
+  }
+};
+
 export const createSupplier = async (supplierData) => {
   try {
-    const response = await axiosFileInstance.post("/suppliers", supplierData);
+    const response = await axiosFileInstance.post("/suppliers", supplierData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return response.data;
   } catch (error) {
     console.error(
@@ -27,7 +46,6 @@ export const createSupplier = async (supplierData) => {
       error.response?.data || error.message
     );
     throw (
-      error.response?.data?.error ||
       error.response?.data?.message ||
       error.message ||
       "Failed to create supplier"
@@ -39,7 +57,10 @@ export const updateSupplier = async (id, supplierData) => {
   try {
     const response = await axiosFileInstance.put(
       `/suppliers/${id}`,
-      supplierData
+      supplierData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      }
     );
     return response.data;
   } catch (error) {
@@ -48,7 +69,6 @@ export const updateSupplier = async (id, supplierData) => {
       error.response?.data || error.message
     );
     throw (
-      error.response?.data?.error ||
       error.response?.data?.message ||
       error.message ||
       "Failed to update supplier"
@@ -66,23 +86,33 @@ export const deleteSupplier = async (id) => {
       error.response?.data || error.message
     );
     throw (
-      error.response?.data?.error ||
+      error.response?.data?.message ||
       error.message ||
       "Failed to delete supplier"
     );
   }
 };
 
-// Other functions (unchanged for this fix but included for completeness)
 export const addSupplierCredit = async (creditData) => {
   try {
     const response = await axiosFileInstance.post(
       "/suppliers/credits",
-      creditData
+      creditData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      }
     );
     return response.data;
   } catch (error) {
-    throw error.response?.data?.error || error.message;
+    console.error(
+      "Add supplier credit error:",
+      error.response?.data || error.message
+    );
+    throw (
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to add supplier credit"
+    );
   }
 };
 
@@ -90,11 +120,22 @@ export const editSupplierCredit = async (id, creditData) => {
   try {
     const response = await axiosFileInstance.put(
       `/suppliers/credits/${id}`,
-      creditData
+      creditData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      }
     );
     return response.data;
   } catch (error) {
-    throw error.response?.data?.error || error.message;
+    console.error(
+      "Edit supplier credit error:",
+      error.response?.data || error.message
+    );
+    throw (
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to edit supplier credit"
+    );
   }
 };
 
@@ -103,7 +144,15 @@ export const deleteSupplierCredit = async (id) => {
     const response = await axiosInstance.delete(`/suppliers/credits/${id}`);
     return response.data;
   } catch (error) {
-    throw error.response?.data?.error || error.message;
+    console.error(
+      "Delete supplier credit error:",
+      error.response?.data || error.message
+    );
+    throw (
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to delete supplier credit"
+    );
   }
 };
 
@@ -114,7 +163,15 @@ export const getSupplierCredits = async (supplierId) => {
     );
     return response.data.credits;
   } catch (error) {
-    throw error.response?.data?.error || error.message;
+    console.error(
+      "Get supplier credits error:",
+      error.response?.data || error.message
+    );
+    throw (
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to fetch supplier credits"
+    );
   }
 };
 
@@ -123,15 +180,30 @@ export const getAllSupplierCredits = async () => {
     const response = await axiosInstance.get("/suppliers/credits/report");
     return response.data.credits;
   } catch (error) {
-    throw error.response?.data?.error || error.message;
+    console.error(
+      "Get all supplier credits error:",
+      error.response?.data || error.message
+    );
+    throw (
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to fetch all supplier credits"
+    );
   }
 };
 
+// Note: getUserById seems unrelated to suppliers; I'll leave it as is unless you specify otherwise
 export const getUserById = async (userId) => {
   try {
     const response = await axiosInstance.get(`/users/${userId}`);
     return response.data;
   } catch (error) {
-    throw error.response?.data?.error || error.message;
+    console.error(
+      "Get user by ID error:",
+      error.response?.data || error.message
+    );
+    throw (
+      error.response?.data?.message || error.message || "Failed to fetch user"
+    );
   }
 };

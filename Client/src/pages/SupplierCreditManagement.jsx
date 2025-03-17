@@ -21,7 +21,7 @@ const SupplierCreditManagement = () => {
   const [selectedCredit, setSelectedCredit] = useState(null);
   const [viewCredit, setViewCredit] = useState(null);
   const [showCreditReport, setShowCreditReport] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0); // For list refresh
+  const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -77,8 +77,8 @@ const SupplierCreditManagement = () => {
   const handleCreditSaved = (newCredit) => {
     setIsFormOpen(false);
     setSelectedCredit(null);
-    setViewCredit(null); // Close view modal after saving
-    setRefreshKey((prev) => prev + 1); // Trigger list refresh
+    setViewCredit(null);
+    setRefreshKey((prev) => prev + 1);
   };
 
   const handleEdit = (credit) => {
@@ -131,6 +131,12 @@ const SupplierCreditManagement = () => {
       ? credits.filter((credit) => credit.created_by === currentUserId)
       : credits;
 
+  // Calculate total credit amount
+  const totalCreditAmount = credits.reduce(
+    (sum, credit) => sum + credit.credit_amount,
+    0
+  );
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -155,6 +161,12 @@ const SupplierCreditManagement = () => {
           </div>
         </div>
         {error && <div className="text-red-500 mb-4">{error}</div>}
+        {/* Display Total Credit Amount */}
+        <div className="mb-6">
+          <p className="text-lg font-semibold text-gray-700">
+            Total Credit Amount: <span className="text-blue-600">{totalCreditAmount.toFixed(2)}</span>
+          </p>
+        </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white border border-gray-300">
@@ -261,8 +273,7 @@ const SupplierCreditManagement = () => {
                   {viewCredit.description || "N/A"}
                 </p>
                 <p>
-                  <strong>Transaction Type:</strong>{" "}
-                  {viewCredit.transaction_type}
+                  <strong>Payment Method:</strong> {viewCredit.payment_method}
                 </p>
                 <p>
                   <strong>Payment Status:</strong> {viewCredit.payment_status}
@@ -319,6 +330,10 @@ const SupplierCreditManagement = () => {
                 ✕
               </button>
               <h2 className="text-xl font-bold mb-4">Generate Credit Report</h2>
+              {/* Display Total Credit Amount in Report */}
+              <p className="text-lg font-semibold text-gray-700 mb-4">
+                Total Credit Amount: <span className="text-blue-600">{totalCreditAmount.toFixed(2)}</span>
+              </p>
               <table className="min-w-full bg-white border border-gray-300">
                 <thead>
                   <tr className="bg-gray-100 sticky top-0">
@@ -344,7 +359,7 @@ const SupplierCreditManagement = () => {
                       Description
                     </th>
                     <th className="py-2 px-4 border-b text-left">
-                      Transaction Type
+                      Payment Method
                     </th>
                     <th className="py-2 px-4 border-b text-left">Status</th>
                     <th className="py-2 px-4 border-b text-left">
@@ -380,7 +395,7 @@ const SupplierCreditManagement = () => {
                         {credit.description || "N/A"}
                       </td>
                       <td className="py-2 px-4 border-b">
-                        {credit.transaction_type}
+                        {credit.payment_method}
                       </td>
                       <td className="py-2 px-4 border-b">
                         {credit.payment_status}

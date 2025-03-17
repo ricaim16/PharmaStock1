@@ -10,6 +10,7 @@ const SupplierList = ({ onView, setError, refresh }) => {
     const fetchSuppliers = async () => {
       try {
         const data = await getAllSuppliers();
+        console.log("Fetched Suppliers:", data); // Debug
         setSuppliers(data || []);
       } catch (err) {
         setError(err || "Failed to fetch suppliers");
@@ -43,44 +44,66 @@ const SupplierList = ({ onView, setError, refresh }) => {
         </thead>
         <tbody>
           {suppliers.length > 0 ? (
-            suppliers.map((supplier) => (
-              <tr key={supplier.id} className="hover:bg-gray-50">
-                <td className="py-2 px-4 border-b">{supplier.supplier_name}</td>
-                <td className="py-2 px-4 border-b">
-                  {supplier.contact_info || "N/A"}
-                </td>
-                <td className="py-2 px-4 border-b">
-                  {supplier.location || "N/A"}
-                </td>
-                <td className="py-2 px-4 border-b">
-                  {supplier.photo ? (
-                    <img
-                      src={`http://localhost:5000/uploads/${supplier.photo}`}
-                      alt={supplier.supplier_name}
-                      className="w-12 h-12 object-cover rounded"
-                    />
-                  ) : (
-                    "No Photo"
-                  )}
-                </td>
-                <td className="py-2 px-4 border-b">
-                  <button
-                    onClick={() => onView(supplier)}
-                    className="text-green-600 hover:underline mr-2"
-                  >
-                    View
-                  </button>
-                  {role === "MANAGER" && (
+            suppliers.map((supplier) => {
+              const photoUrl = supplier.photo
+                ? `http://localhost:5000/${supplier.photo.replace(
+                    /\\/g,
+                    "/"
+                  )}?t=${Date.now()}`
+                : null;
+              console.log(
+                "Photo URL for",
+                supplier.supplier_name,
+                ":",
+                photoUrl
+              ); // Debug
+              return (
+                <tr key={supplier.id} className="hover:bg-gray-50">
+                  <td className="py-2 px-4 border-b">
+                    {supplier.supplier_name}
+                  </td>
+                  <td className="py-2 px-4 border-b">
+                    {supplier.contact_info || "N/A"}
+                  </td>
+                  <td className="py-2 px-4 border-b">
+                    {supplier.location || "N/A"}
+                  </td>
+                  <td className="py-2 px-4 border-b">
+                    {supplier.photo ? (
+                      <img
+                        src={photoUrl}
+                        alt={supplier.supplier_name}
+                        className="w-12 h-12 object-cover rounded"
+                        onError={(e) => {
+                          console.error(
+                            `Failed to load image: ${supplier.photo}`
+                          );
+                          e.target.src = "/fallback-image.jpg";
+                        }}
+                      />
+                    ) : (
+                      "No Photo"
+                    )}
+                  </td>
+                  <td className="py-2 px-4 border-b">
                     <button
-                      onClick={() => handleDelete(supplier.id)}
-                      className="text-red-600 hover:underline"
+                      onClick={() => onView(supplier)}
+                      className="text-green-600 hover:underline mr-2"
                     >
-                      Delete
+                      View
                     </button>
-                  )}
-                </td>
-              </tr>
-            ))
+                    {role === "MANAGER" && (
+                      <button
+                        onClick={() => handleDelete(supplier.id)}
+                        className="text-red-600 hover:underline"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })
           ) : (
             <tr>
               <td colSpan="5" className="py-2 px-4 text-center text-gray-500">

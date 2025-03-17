@@ -1,4 +1,3 @@
-// api/axiosInstance.js
 import axios from "axios";
 
 export const axiosInstance = axios.create({
@@ -8,6 +7,7 @@ export const axiosInstance = axios.create({
 
 export const axiosFileInstance = axios.create({
   baseURL: "http://localhost:5000/api",
+  headers: { "Content-Type": "multipart/form-data" }, // Set default for file uploads
 });
 
 axiosInstance.interceptors.request.use((config) => {
@@ -27,14 +27,10 @@ axiosFileInstance.interceptors.request.use((config) => {
   return config;
 });
 
-// Only redirect on 401 for non-login requests
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (
-      error.response?.status === 401 &&
-      error.config.url !== "/users/login" // Skip redirect if it's the login request
-    ) {
+    if (error.response?.status === 401 && error.config.url !== "/users/login") {
       console.log("Unauthorized - Logging out...");
       localStorage.clear();
       window.location.href = "/login";
@@ -46,10 +42,7 @@ axiosInstance.interceptors.response.use(
 axiosFileInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (
-      error.response?.status === 401 &&
-      error.config.url !== "/users/login" // Skip redirect if it's the login request
-    ) {
+    if (error.response?.status === 401 && error.config.url !== "/users/login") {
       console.log("Unauthorized - Logging out...");
       localStorage.clear();
       window.location.href = "/login";

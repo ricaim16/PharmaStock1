@@ -1,6 +1,13 @@
-import React from "react";
-
 const SupplierDetailsModal = ({ supplier, onClose, onEdit }) => {
+  const photoUrl = supplier.photo
+    ? `http://localhost:5000/${supplier.photo.replace(
+        /\\/g,
+        "/"
+      )}?t=${Date.now()}`
+    : null;
+
+  console.log("Supplier Photo URL:", photoUrl); // Debug
+
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full space-y-4 relative">
@@ -50,16 +57,28 @@ const SupplierDetailsModal = ({ supplier, onClose, onEdit }) => {
           <p>
             <strong>Photo:</strong>{" "}
             {supplier.photo ? (
-              <a
-                href={`http://localhost:5000/uploads/${supplier.photo}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
-              >
-                View Photo
-              </a>
+              <div className="mt-2">
+                <img
+                  src={photoUrl}
+                  alt={supplier.supplier_name}
+                  className="w-32 h-32 object-cover rounded"
+                  onError={(e) => {
+                    console.error(`Failed to load image: ${supplier.photo}`);
+                    console.log("Attempted URL:", e.target.src); // Debug
+                    e.target.src = "/images/fallback-image.jpg"; // Adjust path
+                  }}
+                />
+                <a
+                  href={photoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline block mt-2"
+                >
+                  View Full Size
+                </a>
+              </div>
             ) : (
-              "None"
+              "No photo available"
             )}
           </p>
         </div>

@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Enums for role, status, gender, payment status, and transaction type
+// Enums
 enum Role {
   MANAGER
   EMPLOYEE
@@ -24,15 +24,18 @@ enum Gender {
 }
 
 enum PaymentStatus {
-  PENDING
+  UNPAID
   PARTIALLY_PAID
   PAID
 }
 
-enum TransactionType {
-  LOAN
-  PAYMENT
-  PURCHASE  // Consolidated into one enum
+enum PaymentMethod {  
+  NONE    // Added NONE as an explicit option
+  CASH
+  CBE
+  COOP
+  AWASH
+  EBIRR
 }
 
 // Users table
@@ -44,9 +47,8 @@ model Users {
   password  String
   role      Role
   status    Status           @default(ACTIVE)
-  member    Members?         // Relation to Members
-credits   SupplierCredits[] @relation
-
+  member    Members?
+  credits   SupplierCredits[] @relation
 }
 
 // Members table
@@ -72,7 +74,7 @@ model Members {
 
 // Suppliers table
 model Suppliers {
-  id                String      @id @default(uuid())
+  id                String            @id @default(uuid())
   supplier_name     String
   contact_info      String
   payment_info_cbe  String?
@@ -105,7 +107,7 @@ model DosageForms {
 
 // Medicines Table
 model Medicines {
-  id                     String   @id @default(uuid())
+  id                     String         @id @default(uuid())
   medicine_name          String
   brand_name             String
   batch_number           String
@@ -120,11 +122,11 @@ model Medicines {
   total_price            Float
   expire_date            DateTime
   required_prescription  Boolean
-  payment_method         String
+  payment_method         PaymentMethod? // Made optional with ?
   Payment_file           String?
   details                String?
-  category               Categories    @relation(fields: [category_id], references: [id])
-  dosage_form            DosageForms   @relation(fields: [dosage_form_id], references: [id])
+  category               Categories     @relation(fields: [category_id], references: [id])
+  dosage_form            DosageForms    @relation(fields: [dosage_form_id], references: [id])
   supplier               Suppliers      @relation(fields: [supplier_id], references: [id])
   Sales                  Sales[]
   Returns                Returns[]
@@ -132,29 +134,29 @@ model Medicines {
 
 // Sales Table
 model Sales {
-  id                     Int       @id @default(autoincrement())
+  id                     Int            @id @default(autoincrement())
   product_name           String
   product_batch_number   String
   Quantity               Int
   price                  Float
   total_amount           Float
-  payment_method         String
+  payment_method         PaymentMethod? // Made optional with ?
   prescription           Boolean
   dosage_form_id         Int
   customer_id            Int
   sealed_date            DateTime
   medicine_id            String
-  dosage_form            DosageForms @relation(fields: [dosage_form_id], references: [id])
-  customer               Customers   @relation(fields: [customer_id], references: [id])
-  medicine               Medicines   @relation(fields: [medicine_id], references: [id])
+  dosage_form            DosageForms    @relation(fields: [dosage_form_id], references: [id])
+  customer               Customers      @relation(fields: [customer_id], references: [id])
+  medicine               Medicines      @relation(fields: [medicine_id], references: [id])
 }
 
 // Expenses Table
 model Expenses {
-  id              Int       @id @default(autoincrement())
+  id              Int            @id @default(autoincrement())
   date            DateTime
   reason          String
-  payment_method  String
+  payment_method  PaymentMethod? // Made optional with ?
   receipt         String?
   amount          Float
   description     String?
@@ -163,7 +165,7 @@ model Expenses {
 
 // Returns Table
 model Returns {
-  id                   Int       @id @default(autoincrement())
+  id                   Int         @id @default(autoincrement())
   product_name         String
   product_batch_number String
   dosage_form_id       Int
@@ -172,7 +174,7 @@ model Returns {
   quantity             Int
   medicine_id          String
   dosage_form          DosageForms @relation(fields: [dosage_form_id], references: [id])
-  medicine             Medicines    @relation(fields: [medicine_id], references: [id])
+  medicine             Medicines   @relation(fields: [medicine_id], references: [id])
 }
 
 // Customers Table
@@ -188,21 +190,20 @@ model Customers {
 
 // SupplierCredits Table
 model SupplierCredits {
-  id                String        @id @default(uuid())
+  id                String         @id @default(uuid())
   supplier_id       String
   credit_amount     Float
-  paid_amount       Float         @default(0)
+  paid_amount       Float          @default(0)
   description       String?
-  transaction_type  TransactionType
-  payment_status    PaymentStatus @default(PENDING)
+  payment_method    PaymentMethod? // Made optional with ?
+  payment_status    PaymentStatus  @default(UNPAID)
   credit_date       DateTime
   payment_file      String?
   created_by        String
-  created_at        DateTime      @default(now())
-  updated_at        DateTime      @updatedAt
-
-  supplier          Suppliers     @relation(fields: [supplier_id], references: [id])
-  user              Users         @relation(fields: [created_by], references: [id])
+  created_at        DateTime       @default(now())
+  updated_at        DateTime       @updatedAt
+  supplier          Suppliers      @relation(fields: [supplier_id], references: [id])
+  user              Users          @relation(fields: [created_by], references: [id])
 }
 
 // CustomerCredit Table
@@ -219,7 +220,7 @@ model CustomerCredit {
 
 // Objectives Table
 model Objectives {
-  id            Int       @id @default(autoincrement())
+  id            Int        @id @default(autoincrement())
   title         String
   description   String
   time_period   String
@@ -229,7 +230,7 @@ model Objectives {
 
 // KeyResults Table
 model KeyResults {
-  id            Int       @id @default(autoincrement())
+  id            Int        @id @default(autoincrement())
   objective_id  Int
   title         String
   description   String

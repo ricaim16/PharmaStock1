@@ -1,9 +1,42 @@
 import express from "express";
 import { supplierController } from "../controllers/supplierController.js";
 import { authMiddleware, roleMiddleware } from "../middlewares/auth.js";
-import { upload } from "../middlewares/upload.js";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 const router = express.Router();
+
+// Helper to get __dirname in ESM
+const __filename = new URL(import.meta.url).pathname;
+const __dirname = path.dirname(
+  __filename.startsWith("/") ? __filename.slice(1) : __filename
+);
+
+// Multer configuration (aligned with memberRoutes.js)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, "../uploads");
+    try {
+      if (!fs.existsSync(uploadPath)) {
+        fs.mkdirSync(uploadPath, { recursive: true });
+        console.log(`Created uploads directory at: ${uploadPath}`);
+      }
+      cb(null, uploadPath);
+    } catch (error) {
+      console.error(
+        `Error creating uploads directory at ${uploadPath}:`,
+        error
+      );
+      cb(error);
+    }
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`); // e.g., 1742130477191-photo.png
+  },
+});
+
+const upload = multer({ storage });
 
 // Supplier routes
 router.get(
@@ -14,10 +47,10 @@ router.get(
 );
 
 router.post(
-  "", // Changed from "/" to "" to match /api/suppliers exactly
+  "",
   authMiddleware,
   roleMiddleware(["MANAGER"]),
-  upload.single("photo"),
+  upload.single("photo"), // Single photo upload
   supplierController.addSupplier
 );
 

@@ -17,8 +17,8 @@ export const seedDatabase = async () => {
     const managerData = {
       FirstName: "Sample",
       LastName: "Manager",
-      username: "manager1",
-      password: "Manager@123",
+      username: "Admin",
+      password: "123",
       role: "MANAGER",
     };
 

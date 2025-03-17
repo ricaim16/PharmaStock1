@@ -11,7 +11,7 @@ const SupplierCreditForm = ({ credit, onCreditSaved, onClose }) => {
     credit_amount: "",
     paid_amount: "0",
     description: "",
-    transaction_type: "PURCHASE",
+    payment_method: "NONE", // Default to NONE
     payment_file: null,
   });
   const [suppliers, setSuppliers] = useState([]);
@@ -35,11 +35,21 @@ const SupplierCreditForm = ({ credit, onCreditSaved, onClose }) => {
         credit_amount: credit.credit_amount || "",
         paid_amount: credit.paid_amount || "0",
         description: credit.description || "",
-        transaction_type: credit.transaction_type || "PURCHASE",
+        payment_method: credit.payment_method || "NONE", // Ensure correct initialization
         payment_file: null,
       });
     }
   }, [credit]);
+
+  // Effect to set payment method to NONE if paid amount is 0
+  useEffect(() => {
+    if (parseFloat(formData.paid_amount) === 0) {
+      setFormData((prev) => ({
+        ...prev,
+        payment_method: "NONE",
+      }));
+    }
+  }, [formData.paid_amount]);
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -161,17 +171,21 @@ const SupplierCreditForm = ({ credit, onCreditSaved, onClose }) => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Transaction Type
+              Payment Method
             </label>
             <select
-              name="transaction_type"
-              value={formData.transaction_type}
+              name="payment_method"
+              value={formData.payment_method}
               onChange={handleChange}
               required
               className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="PURCHASE">Purchase</option>
-              <option value="PAYMENT">Payment</option>
+              <option value="NONE">None</option>
+              <option value="CASH">Cash</option>
+              <option value="CBE">CBE</option>
+              <option value="COOP">Coop</option>
+              <option value="AWASH">Awash</option>
+              <option value="EBIRR">eBirr</option>
             </select>
           </div>
           <div>
