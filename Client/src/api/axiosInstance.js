@@ -7,7 +7,7 @@ export const axiosInstance = axios.create({
 
 export const axiosFileInstance = axios.create({
   baseURL: "http://localhost:5000/api",
-  headers: { "Content-Type": "multipart/form-data" }, // Set default for file uploads
+  headers: { "Content-Type": "multipart/form-data" },
 });
 
 axiosInstance.interceptors.request.use((config) => {
@@ -15,6 +15,7 @@ axiosInstance.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  console.log("Request:", config.method, config.url, "Token:", token);
   return config;
 });
 

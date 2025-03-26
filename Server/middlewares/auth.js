@@ -8,25 +8,24 @@ export const authMiddleware = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("Decoded Token Payload:", decoded); // Debug log
-    req.user = decoded; // Attach user info (id, role)
+    console.log("Decoded Token Payload:", decoded);
+    req.user = decoded; // { id, role }
     next();
   } catch (error) {
     console.error("Token Verification Error:", error);
-    res.status(401).json({ error: "Invalid token" });
+    res.status(401).json({ error: "Invalid or expired token" });
   }
 };
 
 export const roleMiddleware = (roles) => (req, res, next) => {
-  console.log("Request User Role:", req.user?.role); // Debug log
-  console.log("Allowed Roles:", roles); // Debug log
+  console.log("Request User Role:", req.user?.role);
+  console.log("Allowed Roles:", roles);
   if (!req.user || !roles.includes(req.user.role.toUpperCase())) {
     return res.status(403).json({ error: "Insufficient permissions" });
   }
   next();
 };
 
-// Error handler
 export const errorHandler = (err, req, res, next) => {
   console.error(err.stack);
   const statusCode = err.statusCode || 500;

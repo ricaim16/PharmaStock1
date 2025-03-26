@@ -1,409 +1,319 @@
 import { useState, useEffect } from "react";
-import { createMember, updateMember } from "../api/memberApi";
+import { addMedicine, editMedicine } from "../api/medicineApi";
+import { getAllCategories } from "../api/categoryApi";
+import { getAllDosageForms } from "../api/dosageApi";
+import { getAllSuppliers } from "../api/supplierApi";
 
-const MemberForm = ({ member, onMemberSaved, users, onClose }) => {
+const MedicineForm = ({ medicine, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
-    user_id: "",
-    FirstName: "",
-    LastName: "",
-    phone: "",
-    role: "EMPLOYEE",
-    position: "",
-    salary: "",
-    joining_date: "",
-    status: "ACTIVE",
-    address: "",
-    certificate: null,
-    photo: null,
-    gender: "",
-    dob: "",
-    biography: "",
+    medicine_name: "",
+    brand_name: "",
+    batch_number: "",
+    category_id: "",
+    dosage_form_id: "",
+    medicine_weight: "",
+    quantity: "",
+    supplier_id: "",
+    unit_price: "",
+    sell_price: "",
+    expire_date: "",
+    required_prescription: false,
+    payment_method: "NONE",
+    Payment_file: null,
+    details: "",
   });
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [dosageForms, setDosageForms] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [error, setError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false); // New loading state
 
   useEffect(() => {
-    if (member) {
+    if (medicine) {
       setFormData({
-        user_id: member.user_id || "",
-        FirstName: member.FirstName || "",
-        LastName: member.LastName || "",
-        phone: member.phone || "",
-        role: member.role || "EMPLOYEE",
-        position: member.position || "",
-        salary: member.salary || "",
-        joining_date: member.joining_date
-          ? new Date(member.joining_date).toISOString().split("T")[0]
+        ...medicine,
+        Payment_file: null,
+        expire_date: medicine.expire_date
+          ? medicine.expire_date.split("T")[0]
           : "",
-        status: member.status || "ACTIVE",
-        address: member.address || "",
-        certificate: null,
-        photo: null,
-        gender: member.gender || "",
-        dob: member.dob ? new Date(member.dob).toISOString().split("T")[0] : "",
-        biography: member.biography || "",
-      });
-    } else {
-      setFormData({
-        user_id: "",
-        FirstName: "",
-        LastName: "",
-        phone: "",
-        role: "EMPLOYEE",
-        position: "",
-        salary: "",
-        joining_date: "",
-        status: "ACTIVE",
-        address: "",
-        certificate: null,
-        photo: null,
-        gender: "",
-        dob: "",
-        biography: "",
       });
     }
-  }, [member]);
+    fetchDropdownData();
+  }, [medicine]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  const fetchDropdownData = async () => {
+    try {
+      const [catRes, dosRes, supRes] = await Promise.all([
+        getAllCategories(),
+        getAllDosageForms(),
+        getAllSuppliers(),
+      ]);
+      setCategories(catRes);
+      setDosageForms(dosRes);
+      setSuppliers(supRes);
+    } catch (err) {
+      setError("Failed to load dropdown data");
+    }
   };
 
-  const handleFileChange = (e) => {
-    const { name, files } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: files[0] || null }));
+  const handleChange = (e) => {
+    const { name, value, type, checked, files } = e.target;
+    let newValue = value;
+
+    if (
+      ["quantity", "unit_price", "sell_price", "medicine_weight"].includes(name)
+    ) {
+      newValue = value === "" ? "" : parseFloat(value) || "";
+    }
+    if (name === "expire_date") {
+      newValue = value === "" ? "" : value;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : files ? files[0] : newValue,
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const requiredFields = {
-      user_id: formData.user_id,
-      FirstName: formData.FirstName,
-      LastName: formData.LastName,
-      role: formData.role,
-      position: formData.position,
-      salary: formData.salary,
-      joining_date: formData.joining_date,
-      status: formData.status,
-    };
-    const missingFields = Object.keys(requiredFields).filter(
-      (key) => !requiredFields[key]
-    );
-    if (missingFields.length > 0) {
-      setError(`Missing required fields: ${missingFields.join(", ")}`);
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
-    const data = new FormData();
-    Object.keys(formData).forEach((key) => {
-      if (formData[key] !== null) {
-        if (key === "certificate" || key === "photo") {
-          if (formData[key] instanceof File) {
-            data.append(key, formData[key]);
-          }
+    setIsSubmitting(true); // Disable button
+    setError(null); // Clear previous errors
+    try {
+      const submissionData = {};
+      for (const key in formData) {
+        if (
+          formData[key] === "" &&
+          ![
+            "medicine_name",
+            "quantity",
+            "unit_price",
+            "category_id",
+            "dosage_form_id",
+            "supplier_id",
+          ].includes(key)
+        ) {
+          submissionData[key] = undefined;
+        } else if (["quantity", "medicine_weight"].includes(key)) {
+          submissionData[key] = formData[key]
+            ? parseInt(formData[key], 10)
+            : formData[key];
+        } else if (["unit_price", "sell_price"].includes(key)) {
+          submissionData[key] = formData[key]
+            ? parseFloat(formData[key])
+            : formData[key];
         } else {
-          data.append(key, formData[key]);
+          submissionData[key] = formData[key];
         }
       }
-    });
 
-    try {
       let response;
-      if (member) {
-        response = await updateMember(member.id, data);
+      if (medicine) {
+        response = await editMedicine(medicine.id, submissionData);
       } else {
-        response = await createMember(data);
+        response = await addMedicine(submissionData);
       }
-      setError("");
-      onMemberSaved(response.member);
-      if (onClose) onClose(); // Close the form immediately without alert
+      const savedMedicine = response.data.medicine || response.data;
+      onSave(savedMedicine);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to save member");
+      setError(err.response?.data?.error?.message || "Failed to save medicine");
     } finally {
-      setLoading(false);
+      setIsSubmitting(false); // Re-enable button
     }
   };
 
-  // Debugging log to check if onClose is provided
-  useEffect(() => {
-    console.log("onClose prop:", onClose);
-  }, [onClose]);
-
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-[80%] max-w-5xl relative">
-        {/* Header with Title and Close Button */}
-        <div className="sticky top-0 z-[100] bg-white py-4 flex justify-between items-center border-b shadow-lg px-4">
-          <h2 className="text-xl font-bold text-center flex-1">
-            {member ? "Update Member" : "Create New Member"}
-          </h2>
-          <button
-            onClick={onClose || (() => {})}
-            className="text-gray-600 hover:text-gray-800 text-2xl font-bold p-2 rounded-full hover:bg-gray-200 transition-colors"
-            aria-label="Close"
+    <form onSubmit={handleSubmit} className="p-4 bg-white rounded shadow mb-4">
+      {error && <div className="text-red-500 mb-4">{error}</div>}
+      <div className="flex flex-col md:flex-row md:space-x-4">
+        <div className="md:w-1/2 space-y-4">
+          <input
+            type="text"
+            name="medicine_name"
+            value={formData.medicine_name}
+            onChange={handleChange}
+            placeholder="Medicine Name"
+            className="w-full p-2 border rounded"
+            required
+            disabled={isSubmitting}
+          />
+          <input
+            type="text"
+            name="brand_name"
+            value={formData.brand_name}
+            onChange={handleChange}
+            placeholder="Brand Name"
+            className="w-full p-2 border rounded"
+            disabled={isSubmitting}
+          />
+          <input
+            type="text"
+            name="batch_number"
+            value={formData.batch_number}
+            onChange={handleChange}
+            placeholder="Batch Number"
+            className="w-full p-2 border rounded"
+            disabled={isSubmitting}
+          />
+          <select
+            name="category_id"
+            value={formData.category_id}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+            disabled={isSubmitting}
           >
-            ✕
-          </button>
+            <option value="">Select Category</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+          <select
+            name="dosage_form_id"
+            value={formData.dosage_form_id}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+            disabled={isSubmitting}
+          >
+            <option value="">Select Dosage Form</option>
+            {dosageForms.map((dos) => (
+              <option key={dos.id} value={dos.id}>
+                {dos.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            name="medicine_weight"
+            value={formData.medicine_weight}
+            onChange={handleChange}
+            placeholder="Medicine Weight"
+            className="w-full p-2 border rounded"
+            step="0.01"
+            disabled={isSubmitting}
+          />
+          <input
+            type="number"
+            name="quantity"
+            value={formData.quantity}
+            onChange={handleChange}
+            placeholder="Quantity"
+            className="w-full p-2 border rounded"
+            required
+            disabled={isSubmitting}
+          />
         </div>
-        {/* Scrollable Content */}
-        {error && <p className="text-red-500 mb-4 pt-6">{error}</p>}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto pt-16 p-2">
-            <div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  User
-                </label>
-                <select
-                  name="user_id"
-                  value={formData.user_id}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={!!member}
-                  required
-                >
-                  <option value="">Select User</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.username} ({user.role})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  name="FirstName"
-                  value={formData.FirstName}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  name="LastName"
-                  value={formData.LastName}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Phone
-                </label>
-                <input
-                  type="text"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Position
-                </label>
-                <input
-                  type="text"
-                  name="position"
-                  value={formData.position}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Salary
-                </label>
-                <input
-                  type="number"
-                  name="salary"
-                  value={formData.salary}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Address
-                </label>
-                <input
-                  type="text"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Certificate
-                </label>
-                <input
-                  type="file"
-                  name="certificate"
-                  onChange={handleFileChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {member?.certificate && (
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-700">
-                      Current: {member.certificate}
-                    </p>
-                    <img
-                      src={`http://localhost:5000/uploads/${member.certificate
-                        .split("\\")
-                        .pop()}`}
-                      alt="Current Certificate"
-                      className="mt-2 max-w-xs h-auto"
-                      onError={(e) => {
-                        e.target.src = "https://via.placeholder.com/150";
-                        e.target.alt = "Failed to load certificate";
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-            <div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Role
-                </label>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="EMPLOYEE">Employee</option>
-                  <option value="MANAGER">Manager</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Joining Date
-                </label>
-                <input
-                  type="date"
-                  name="joining_date"
-                  value={formData.joining_date}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Status
-                </label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Photo
-                </label>
-                <input
-                  type="file"
-                  name="photo"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {member?.photo && (
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-700">
-                      Current: {member.photo}
-                    </p>
-                    <img
-                      src={`http://localhost:5000/uploads/${member.photo
-                        .split("\\")
-                        .pop()}`}
-                      alt="Current Photo"
-                      className="mt-2 max-w-xs h-auto"
-                      onError={(e) => {
-                        e.target.src = "https://via.placeholder.com/150";
-                        e.target.alt = "Failed to load photo";
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Gender
-                </label>
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select Gender</option>
-                  <option value="MALE">Male</option>
-                  <option value="FEMALE">Female</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Date of Birth
-                </label>
-                <input
-                  type="date"
-                  name="dob"
-                  value={formData.dob}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Biography
-                </label>
-                <textarea
-                  name="biography"
-                  value={formData.biography}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
-                />
-              </div>
-            </div>
-          </div>
-          <button
-            type="submit"
-            className="w-full py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 mt-4"
-            disabled={loading}
+        <div className="md:w-1/2 space-y-4">
+          <select
+            name="supplier_id"
+            value={formData.supplier_id}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+            disabled={isSubmitting}
           >
-            {loading ? "Saving..." : member ? "Update Member" : "Create Member"}
-          </button>
-        </form>
+            <option value="">Select Supplier</option>
+            {suppliers.map((sup) => (
+              <option key={sup.id} value={sup.id}>
+                {sup.supplier_name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            name="unit_price"
+            value={formData.unit_price}
+            onChange={handleChange}
+            placeholder="Unit Price"
+            className="w-full p-2 border rounded"
+            step="0.01"
+            required
+            disabled={isSubmitting}
+          />
+          <input
+            type="number"
+            name="sell_price"
+            value={formData.sell_price}
+            onChange={handleChange}
+            placeholder="Sell Price"
+            className="w-full p-2 border rounded"
+            step="0.01"
+            disabled={isSubmitting}
+          />
+          <input
+            type="date"
+            name="expire_date"
+            value={formData.expire_date}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            disabled={isSubmitting}
+          />
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              name="required_prescription"
+              checked={formData.required_prescription}
+              onChange={handleChange}
+              className="mr-2"
+              disabled={isSubmitting}
+            />
+            Requires Prescription
+          </label>
+          <select
+            name="payment_method"
+            value={formData.payment_method}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            disabled={isSubmitting}
+          >
+            <option value="NONE">None</option>
+            <option value="CASH">Cash</option>
+            <option value="CBE">CBE</option>
+            <option value="COOP">COOP</option>
+            <option value="AWASH">Awash</option>
+            <option value="EBIRR">Ebirr</option>
+          </select>
+          <input
+            type="file"
+            name="Payment_file"
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            disabled={isSubmitting}
+          />
+          <textarea
+            name="details"
+            value={formData.details}
+            onChange={handleChange}
+            placeholder="Details"
+            className="w-full p-2 border rounded"
+            disabled={isSubmitting}
+          />
+        </div>
       </div>
-    </div>
+      <div className="flex space-x-4 mt-4">
+        <button
+          type="submit"
+          className={`bg-blue-500 text-white p-2 rounded hover:bg-blue-600 ${
+            isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+          }`}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? "Saving..." : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="bg-gray-500 text-white p-2 rounded hover:bg-gray-600"
+          disabled={isSubmitting}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 };
 
-export default MemberForm;
+export default MedicineForm;

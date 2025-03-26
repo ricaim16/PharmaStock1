@@ -164,7 +164,10 @@ const SupplierCreditManagement = () => {
         {/* Display Total Credit Amount */}
         <div className="mb-6">
           <p className="text-lg font-semibold text-gray-700">
-            Total Credit Amount: <span className="text-blue-600">{totalCreditAmount.toFixed(2)}</span>
+            Total Credit Amount:{" "}
+            <span className="text-blue-600">
+              {totalCreditAmount.toFixed(2)}
+            </span>
           </p>
         </div>
 
@@ -332,7 +335,10 @@ const SupplierCreditManagement = () => {
               <h2 className="text-xl font-bold mb-4">Generate Credit Report</h2>
               {/* Display Total Credit Amount in Report */}
               <p className="text-lg font-semibold text-gray-700 mb-4">
-                Total Credit Amount: <span className="text-blue-600">{totalCreditAmount.toFixed(2)}</span>
+                Total Credit Amount:{" "}
+                <span className="text-blue-600">
+                  {totalCreditAmount.toFixed(2)}
+                </span>
               </p>
               <table className="min-w-full bg-white border border-gray-300">
                 <thead>

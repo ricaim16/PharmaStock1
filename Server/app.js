@@ -2,29 +2,48 @@ import express from "express";
 import cors from "cors";
 import userRoutes from "./routes/userRoutes.js";
 import memberRoutes from "./routes/memberRoutes.js";
-import { errorHandler } from "./middlewares/auth.js";
 import supplierRoutes from "./routes/supplierRoutes.js";
+import categoryRoutes from "./routes/categoryRoutes.js";
+import dosageFormRoutes from "./routes/dosageFormRoutes.js";
+import medicineRoutes from "./routes/medicineRoutes.js";
+import salesRoutes from "./routes/salesRoutes.js";
+import customerRoutes from "./routes/customerRoutes.js"; // Updated import
+import { errorHandler } from "./middlewares/auth.js";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static("uploads")); // Serve uploaded files
+app.use("/uploads", express.static("uploads"));
 
-// Root route for testing
 app.get("/", (req, res) => {
   res.send("Welcome to the API!");
 });
 
-// User routes
+console.log("Mounting routes...");
 app.use("/api/users", userRoutes);
-// Members routes
 app.use("/api/members", memberRoutes);
-// Routes
 app.use("/api/suppliers", supplierRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/dosage-forms", dosageFormRoutes);
+app.use("/api/medicines", medicineRoutes);
+app.use("/api/sales", salesRoutes);
+app.use("/api/customers", customerRoutes); // Updated to use customerRoutes
+console.log("All routes mounted");
 
-// Error handling middleware
+// Log all incoming requests for debugging
+app.use((req, res, next) => {
+  console.log(`Incoming request: ${req.method} ${req.url}`);
+  next();
+});
+
+// Fallback route
+app.use((req, res) => {
+  console.log(`Route not found: ${req.method} ${req.url}`);
+  res.status(404).json({ error: { message: "Route not found" } });
+});
+
 app.use(errorHandler);
 
 export default app;
