@@ -376,57 +376,72 @@ export const medicineController = {
   generateMedicineReport: async (req, res) => {
     console.log("Generating medicine report...");
     try {
+      // Fetch all medicines with their sales and creator
       const medicines = await prisma.medicines.findMany({
         include: {
           Sales: true,
-          category: true,
-          dosage_form: true,
-          supplier: true,
           createdBy: { select: { username: true } },
         },
       });
+
       console.log("Medicines fetched:", medicines.length);
-
-      if (!medicines.length)
+      if (!medicines.length) {
         console.log("No medicines found, returning empty report");
+        return res.json({
+          generatedAt: getEthiopianTime(),
+          winningProducts: [],
+          worstPerformingProducts: [],
+          stockLevels: [],
+        });
+      }
 
+      // Calculate total sales for each medicine
       const medicineSales = medicines.map((med) => {
         const totalSales = med.Sales.reduce(
-          (sum, sale) => sum + sale.Quantity,
+          (sum, sale) => sum + sale.quantity,
           0
         );
         return { ...med, totalSales };
       });
 
+      // Sort by total sales to determine top and worst performers
       const sortedBySales = [...medicineSales].sort(
         (a, b) => b.totalSales - a.totalSales
       );
 
-      const winningProducts = sortedBySales.slice(
-        0,
-        Math.min(5, sortedBySales.length)
-      );
+      // Winning Products (Top Sellers): Top 5 or fewer
+      const winningProducts = sortedBySales
+        .slice(0, Math.min(5, sortedBySales.length))
+        .map((med) => ({
+          id: med.id,
+          medicine_name: med.medicine_name,
+          totalSales: med.totalSales,
+        }));
+
+      // Worst-Performing Products (Low Sellers): Bottom 5 with sales > 0, reversed
       const worstPerformingProducts = sortedBySales
         .filter((med) => med.totalSales > 0)
         .slice(
           -Math.min(5, sortedBySales.filter((med) => med.totalSales > 0).length)
         )
-        .reverse();
+        .reverse()
+        .map((med) => ({
+          id: med.id,
+          medicine_name: med.medicine_name,
+          totalSales: med.totalSales,
+        }));
 
+      // Stock Levels: All medicines with quantity, expiry, and creator
       const stockLevels = medicines.map((med) => ({
         id: med.id,
         medicine_name: med.medicine_name,
-        brand_name: med.brand_name,
         quantity: med.quantity,
-        category: med.category.name,
-        dosage_form: med.dosage_form.name,
-        supplier: med.supplier.supplier_name,
         expire_date: med.expire_date,
         createdBy: med.createdBy.username,
       }));
 
       const report = {
-        generatedAt: new Date(), // Set to current UTC time (e.g., 2025-03-19T21:54:00.000Z)
+        generatedAt: getEthiopianTime(),
         winningProducts,
         worstPerformingProducts,
         stockLevels,

@@ -23,23 +23,32 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+}).single("payment_file");
+
+const logRawRequest = (req, res, next) => {
+  console.log("Raw request headers:", req.headers);
+  console.log("Raw request body (before multer):", req.body);
+  next();
+};
 
 const router = express.Router();
 
 router.use(authMiddleware);
 
 // Customer Routes
-router.get("/", roleMiddleware(["MANAGER", "EMPLOYEE"]), (req, res) => {
-  console.log("GET /api/customers/ hit");
-  customerController.getAllCustomers(req, res);
-});
-
-router.get("/:id", roleMiddleware(["MANAGER", "EMPLOYEE"]), (req, res) => {
-  console.log(`GET /api/customers/${req.params.id} hit`);
-  customerController.getCustomerById(req, res);
-});
-
+router.get(
+  "/",
+  roleMiddleware(["MANAGER", "EMPLOYEE"]),
+  customerController.getAllCustomers
+);
+router.get(
+  "/:id",
+  roleMiddleware(["MANAGER", "EMPLOYEE"]),
+  customerController.getCustomerById
+);
 router.post(
   "/",
   roleMiddleware(["MANAGER", "EMPLOYEE"]),
@@ -57,43 +66,32 @@ router.delete(
 );
 
 // Customer Credit Routes
-router.get("/credits", roleMiddleware(["MANAGER", "EMPLOYEE"]), (req, res) => {
-  console.log("GET /api/customers/credits hit");
-  customerController.getAllCustomerCredits(req, res);
-});
-
+router.get(
+  "/credits",
+  roleMiddleware(["MANAGER", "EMPLOYEE"]),
+  customerController.getAllCustomerCredits
+);
 router.get(
   "/:customer_id/credits",
   roleMiddleware(["MANAGER", "EMPLOYEE"]),
-  (req, res) => {
-    console.log(`GET /api/customers/${req.params.customer_id}/credits hit`);
-    customerController.getCustomerCredits(req, res);
-  }
+  customerController.getCustomerCredits
 );
-
 router.get(
   "/credits/report",
   roleMiddleware(["MANAGER"]),
   customerController.generateCreditReport
 );
-
 router.post(
   "/credits",
   roleMiddleware(["MANAGER"]),
-  upload.single("payment_file"),
-  (req, res) => {
-    console.log("POST /api/customers/credits hit", {
-      body: req.body,
-      file: req.file,
-    });
-    customerController.addCustomerCredit(req, res);
-  }
+  logRawRequest,
+  upload,
+  customerController.addCustomerCredit
 );
-
 router.put(
   "/credits/:id",
   roleMiddleware(["MANAGER"]),
-  upload.single("payment_file"),
+  upload,
   customerController.editCustomerCredit
 );
 router.delete(

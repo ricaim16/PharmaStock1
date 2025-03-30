@@ -52,7 +52,8 @@ model Users {
   credits        SupplierCredits[] @relation
   medicines      Medicines[]      @relation("CreatedBy")
   sales          Sales[]          @relation("CreatedBy")
-  customerCredits CustomerCredit[] @relation // Add this relation
+  customerCredits CustomerCredit[] @relation("CreatedBy")
+  updatedCustomerCredits CustomerCredit[] @relation("UpdatedBy")
 }
 
 // Members table
@@ -65,7 +66,7 @@ model Members {
   position     String
   address      String?
   certificate  String?
-  photo        String?
+  Photo        String?
   gender       Gender?
   dob          DateTime?
   salary       Float
@@ -151,14 +152,14 @@ model Sales {
   payment_method         PaymentMethod  @default(NONE)
   prescription           Boolean
   dosage_form_id         String
-  customer_id            String
+  customer_id            String?
   sealed_date            DateTime
   medicine_id            String
   created_by             String
   created_at             DateTime       @default(now())
   updated_at             DateTime       @updatedAt
   dosage_form            DosageForms    @relation(fields: [dosage_form_id], references: [id])
-  customer               Customers      @relation(fields: [customer_id], references: [id])
+  customer               Customers?     @relation(fields: [customer_id], references: [id])
   medicine               Medicines      @relation(fields: [medicine_id], references: [id])
   createdBy              Users          @relation("CreatedBy", fields: [created_by], references: [id])
 }
@@ -220,17 +221,25 @@ model SupplierCredits {
 
 // CustomerCredit Table
 model CustomerCredit {
-  id            String   @id @default(uuid())
-  customer_id   String
-  credit_amount Float
-  description   String?
-  status        String   @default("UNPAID")
-  credit_date   DateTime
-  payment_file  String?
-  updated_at    DateTime
-  created_by    String
-  customer      Customers @relation(fields: [customer_id], references: [id])
-  user          Users    @relation(fields: [created_by], references: [id])
+  id               String         @id @default(uuid())
+  customer_id      String
+  credit_amount    Float
+  paid_amount      Float          @default(0)
+  unpaid_amount    Float          @default(0)
+  total_unpaid_amount Float       @default(0)
+  total_paid_amount Float         @default(0)
+  medicine_name    String?
+  payment_method   PaymentMethod  @default(NONE)
+  description      String?
+  status           PaymentStatus  @default(UNPAID)
+  credit_date      DateTime
+  payment_file     String?
+  updated_at       DateTime       @updatedAt
+  created_by       String
+  updated_by       String?
+  customer         Customers      @relation(fields: [customer_id], references: [id])
+  createdBy        Users          @relation("CreatedBy", fields: [created_by], references: [id])
+  updatedBy        Users?         @relation("UpdatedBy", fields: [updated_by], references: [id])
 }
 
 // Objectives Table

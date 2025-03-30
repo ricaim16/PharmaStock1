@@ -56,81 +56,101 @@ export const salesController = {
   addSale: async (req, res) => {
     const {
       medicine_id,
-      customer_id,
+      customer_id, // Optional
       dosage_form_id,
       quantity,
-      price,
-      payment_method,
       prescription,
       product_name,
-      product_batch_number,
     } = req.body;
 
-    if (
-      !medicine_id ||
-      !customer_id ||
-      !dosage_form_id ||
-      !quantity ||
-      !price
-    ) {
+    if (!medicine_id || !dosage_form_id || !quantity) {
       return res.status(400).json({
-        message:
-          "Medicine ID, customer ID, dosage form ID, quantity, and price are required",
+        message: "Medicine ID, dosage form ID, and quantity are required",
       });
     }
 
     try {
-      const [medicine, customer, dosageForm] = await Promise.all([
-        prisma.medicines.findUnique({ where: { id: medicine_id } }),
-        prisma.customers.findUnique({ where: { id: customer_id } }),
+      const [medicine, dosageForm] = await Promise.all([
+        prisma.medicines.findUnique({
+          where: { id: medicine_id },
+          select: {
+            id: true,
+            quantity: true,
+            sell_price: true,
+            batch_number: true,
+            required_prescription: true,
+            medicine_name: true,
+          },
+        }),
         prisma.dosageForms.findUnique({ where: { id: dosage_form_id } }),
       ]);
 
       if (!medicine)
         return res.status(404).json({ message: "Medicine not found" });
-      if (!customer)
-        return res.status(404).json({ message: "Customer not found" });
       if (!dosageForm)
         return res.status(404).json({ message: "Dosage form not found" });
 
-      const parsedQuantity = parseInt(quantity);
-      const parsedPrice = parseFloat(price);
-      if (
-        isNaN(parsedQuantity) ||
-        parsedQuantity <= 0 ||
-        isNaN(parsedPrice) ||
-        parsedPrice <= 0
-      ) {
-        return res.status(400).json({ message: "Invalid quantity or price" });
+      // Only fetch customer if customer_id is provided
+      let customer = null;
+      if (customer_id) {
+        customer = await prisma.customers.findUnique({
+          where: { id: customer_id },
+        });
+        if (!customer)
+          return res.status(404).json({ message: "Customer not found" });
       }
 
-      const total_amount = parsedQuantity * parsedPrice;
+      const parsedQuantity = parseInt(quantity);
+      if (isNaN(parsedQuantity) || parsedQuantity <= 0) {
+        return res.status(400).json({ message: "Invalid quantity" });
+      }
+
+      if (medicine.required_prescription && !prescription) {
+        return res.status(400).json({
+          message: "This medicine requires a prescription",
+        });
+      }
+
+      if (medicine.quantity < parsedQuantity) {
+        return res.status(400).json({
+          message: `Insufficient inventory. Available quantity: ${medicine.quantity}`,
+        });
+      }
+
+      const price = medicine.sell_price || 0;
+      const total_amount = parsedQuantity * price;
       const currentETTime = getEthiopianTime();
 
-      const sale = await prisma.sales.create({
-        data: {
-          product_name: product_name || null,
-          product_batch_number: product_batch_number || null,
-          quantity: parsedQuantity,
-          price: parsedPrice,
-          total_amount,
-          payment_method: payment_method || "NONE",
-          prescription: prescription === true,
-          dosage_form_id,
-          customer_id,
-          sealed_date: currentETTime,
-          medicine_id,
-          created_by: req.user.id,
-          created_at: currentETTime,
-          updated_at: currentETTime,
-        },
-        include: {
-          medicine: { select: { medicine_name: true } },
-          customer: { select: { name: true } },
-          dosage_form: { select: { name: true } },
-          createdBy: { select: { username: true } },
-        },
-      });
+      const [sale] = await prisma.$transaction([
+        prisma.sales.create({
+          data: {
+            product_name: product_name || medicine.medicine_name,
+            product_batch_number: medicine.batch_number || null,
+            quantity: parsedQuantity,
+            price,
+            total_amount,
+            payment_method: "CBE",
+            prescription: prescription === true,
+            dosage_form_id,
+            customer_id: customer_id || null, // Explicitly set to null if not provided
+            sealed_date: currentETTime,
+            medicine_id,
+            created_by: req.user.id,
+            created_at: currentETTime,
+            updated_at: currentETTime,
+          },
+          include: {
+            medicine: { select: { medicine_name: true } },
+            customer: { select: { name: true } },
+            dosage_form: { select: { name: true } },
+            createdBy: { select: { username: true } },
+          },
+        }),
+        prisma.medicines.update({
+          where: { id: medicine_id },
+          data: { quantity: { decrement: parsedQuantity } },
+        }),
+      ]);
 
       console.log(`Created sale by user ${req.user?.id || "unknown"}:`, sale);
       res.status(201).json({ message: "Sale created successfully", sale });
@@ -146,14 +166,11 @@ export const salesController = {
     const { id } = req.params;
     const {
       medicine_id,
-      customer_id,
+      customer_id, // Optional
       dosage_form_id,
       quantity,
-      price,
-      payment_method,
       prescription,
       product_name,
-      product_batch_number,
     } = req.body;
 
     try {
@@ -161,17 +178,30 @@ export const salesController = {
       if (!existingSale)
         return res.status(404).json({ message: "Sale not found" });
 
-      const medicine = medicine_id
-        ? await prisma.medicines.findUnique({ where: { id: medicine_id } })
-        : null;
-      if (medicine_id && !medicine)
+      const medicineIdToUse = medicine_id || existingSale.medicine_id;
+      const medicine = await prisma.medicines.findUnique({
+        where: { id: medicineIdToUse },
+        select: {
+          id: true,
+          quantity: true,
+          sell_price: true,
+          batch_number: true,
+          required_prescription: true,
+          medicine_name: true,
+        },
+      });
+      if (!medicine)
         return res.status(404).json({ message: "Medicine not found" });
 
-      const customer = customer_id
-        ? await prisma.customers.findUnique({ where: { id: customer_id } })
-        : null;
-      if (customer_id && !customer)
-        return res.status(404).json({ message: "Customer not found" });
+      // Only fetch customer if customer_id is provided
+      let customer = null;
+      if (customer_id) {
+        customer = await prisma.customers.findUnique({
+          where: { id: customer_id },
+        });
+        if (!customer)
+          return res.status(404).json({ message: "Customer not found" });
+      }
 
       const dosageForm = dosage_form_id
         ? await prisma.dosageForms.findUnique({ where: { id: dosage_form_id } })
@@ -182,41 +212,62 @@ export const salesController = {
       const parsedQuantity = quantity
         ? parseInt(quantity)
         : existingSale.quantity;
-      const parsedPrice = price ? parseFloat(price) : existingSale.price;
-      if (
-        (quantity && (isNaN(parsedQuantity) || parsedQuantity <= 0)) ||
-        (price && (isNaN(parsedPrice) || parsedPrice <= 0))
-      ) {
-        return res.status(400).json({ message: "Invalid quantity or price" });
+      if (quantity && (isNaN(parsedQuantity) || parsedQuantity <= 0)) {
+        return res.status(400).json({ message: "Invalid quantity" });
       }
 
-      const total_amount = parsedQuantity * parsedPrice;
+      if (
+        medicine.required_prescription &&
+        (prescription !== undefined
+          ? !prescription
+          : !existingSale.prescription)
+      ) {
+        return res.status(400).json({
+          message: "This medicine requires a prescription",
+        });
+      }
+
+      const quantityDifference = parsedQuantity - existingSale.quantity;
+      if (quantityDifference > 0 && medicine.quantity < quantityDifference) {
+        return res.status(400).json({
+          message: `Insufficient inventory. Available quantity: ${medicine.quantity}`,
+        });
+      }
+
+      const price = medicine.sell_price || 0;
+      const total_amount = parsedQuantity * price;
       const currentETTime = getEthiopianTime();
 
-      const updatedSale = await prisma.sales.update({
-        where: { id },
-        data: {
-          product_name: product_name ?? existingSale.product_name,
-          product_batch_number:
-            product_batch_number ?? existingSale.product_batch_number,
-          quantity: parsedQuantity,
-          price: parsedPrice,
-          total_amount,
-          payment_method: payment_method ?? existingSale.payment_method,
-          prescription: prescription ?? existingSale.prescription,
-          dosage_form_id: dosage_form_id ?? existingSale.dosage_form_id,
-          customer_id: customer_id ?? existingSale.customer_id,
-          medicine_id: medicine_id ?? existingSale.medicine_id,
-          sealed_date: currentETTime,
-          updated_at: currentETTime,
-        },
-        include: {
-          medicine: { select: { medicine_name: true } },
-          customer: { select: { name: true } },
-          dosage_form: { select: { name: true } },
-          createdBy: { select: { username: true } },
-        },
-      });
+      const [updatedSale] = await prisma.$transaction([
+        prisma.sales.update({
+          where: { id },
+          data: {
+            product_name: product_name ?? existingSale.product_name,
+            product_batch_number:
+              medicine.batch_number ?? existingSale.product_batch_number,
+            quantity: parsedQuantity,
+            price,
+            total_amount,
+            payment_method: "CBE",
+            prescription: prescription ?? existingSale.prescription,
+            dosage_form_id: dosage_form_id ?? existingSale.dosage_form_id,
+            customer_id: customer_id ?? existingSale.customer_id, // Allow null
+            medicine_id: medicine_id ?? existingSale.medicine_id,
+            sealed_date: currentETTime,
+            updated_at: currentETTime,
+          },
+          include: {
+            medicine: { select: { medicine_name: true } },
+            customer: { select: { name: true } },
+            dosage_form: { select: { name: true } },
+            createdBy: { select: { username: true } },
+          },
+        }),
+        prisma.medicines.update({
+          where: { id: medicineIdToUse },
+          data: { quantity: { decrement: quantityDifference } },
+        }),
+      ]);
 
       console.log(
         `Updated sale ${id} by user ${req.user?.id || "unknown"}:`,
@@ -240,7 +291,13 @@ export const salesController = {
       const sale = await prisma.sales.findUnique({ where: { id } });
       if (!sale) return res.status(404).json({ message: "Sale not found" });
 
-      await prisma.sales.delete({ where: { id } });
+      await prisma.$transaction([
+        prisma.sales.delete({ where: { id } }),
+        prisma.medicines.update({
+          where: { id: sale.medicine_id },
+          data: { quantity: { increment: sale.quantity } },
+        }),
+      ]);
 
       console.log(`Deleted sale ${id} by user ${req.user?.id || "unknown"}`);
       res.json({ message: "Sale deleted successfully" });
@@ -302,12 +359,10 @@ export const salesController = {
       });
     } catch (error) {
       console.error("Error generating sales report:", error.stack);
-      res
-        .status(500)
-        .json({
-          message: "Error generating sales report",
-          error: error.message,
-        });
+      res.status(500).json({
+        message: "Error generating sales report",
+        error: error.message,
+      });
     }
   },
 };

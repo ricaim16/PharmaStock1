@@ -1,4 +1,3 @@
-// customerController.js
 import prisma from "../config/db.js";
 import path from "path";
 
@@ -31,10 +30,9 @@ export const customerController = {
       res.json(customers);
     } catch (error) {
       console.error("Error fetching customers:", error.stack);
-      res.status(500).json({
-        message: "Error fetching customers",
-        error: error.message,
-      });
+      res
+        .status(500)
+        .json({ message: "Error fetching customers", error: error.message });
     }
   },
 
@@ -63,10 +61,9 @@ export const customerController = {
       res.json(customer);
     } catch (error) {
       console.error(`Error fetching customer ${id}:`, error.stack);
-      res.status(500).json({
-        message: "Error fetching customer",
-        error: error.message,
-      });
+      res
+        .status(500)
+        .json({ message: "Error fetching customer", error: error.message });
     }
   },
 
@@ -74,17 +71,13 @@ export const customerController = {
     const { name, phone, address, status } = req.body;
 
     if (!name?.trim() || !phone?.trim() || !address?.trim()) {
-      return res.status(400).json({
-        message: "Name, phone, and address are required and cannot be empty",
-      });
+      return res
+        .status(400)
+        .json({ message: "Name, phone, and address are required" });
     }
 
     if (!/^\+?\d{9,13}$/.test(phone)) {
       return res.status(400).json({ message: "Invalid phone number format" });
-    }
-
-    if (status && !["ACTIVE", "INACTIVE"].includes(status.toUpperCase())) {
-      return res.status(400).json({ message: "Invalid status value" });
     }
 
     try {
@@ -97,26 +90,20 @@ export const customerController = {
         },
       });
       console.log(`Created customer by user ${req.user.id}:`, customer);
-      res.status(201).json({
-        message: "Customer created successfully",
-        customer,
-      });
+      res
+        .status(201)
+        .json({ message: "Customer created successfully", customer });
     } catch (error) {
       console.error("Error adding customer:", error.stack);
-      res.status(500).json({
-        message: "Error adding customer",
-        error: error.message,
-      });
+      res
+        .status(500)
+        .json({ message: "Error adding customer", error: error.message });
     }
   },
 
   editCustomer: async (req, res) => {
     const { id } = req.params;
     const { name, phone, address, status } = req.body;
-
-    if (!id || typeof id !== "string") {
-      return res.status(400).json({ message: "Valid customer ID is required" });
-    }
 
     try {
       const existingCustomer = await prisma.customers.findUnique({
@@ -130,10 +117,6 @@ export const customerController = {
         return res.status(400).json({ message: "Invalid phone number format" });
       }
 
-      if (status && !["ACTIVE", "INACTIVE"].includes(status.toUpperCase())) {
-        return res.status(400).json({ message: "Invalid status value" });
-      }
-
       const customer = await prisma.customers.update({
         where: { id },
         data: {
@@ -144,25 +127,19 @@ export const customerController = {
         },
       });
       console.log(`Updated customer ${id} by user ${req.user.id}:`, customer);
-      res.status(200).json({
-        message: "Customer updated successfully",
-        customer,
-      });
+      res
+        .status(200)
+        .json({ message: "Customer updated successfully", customer });
     } catch (error) {
       console.error(`Error updating customer ${id}:`, error.stack);
-      res.status(500).json({
-        message: "Error updating customer",
-        error: error.message,
-      });
+      res
+        .status(500)
+        .json({ message: "Error updating customer", error: error.message });
     }
   },
 
   deleteCustomer: async (req, res) => {
     const { id } = req.params;
-
-    if (!id || typeof id !== "string") {
-      return res.status(400).json({ message: "Valid customer ID is required" });
-    }
 
     try {
       const customer = await prisma.customers.findUnique({ where: { id } });
@@ -186,10 +163,9 @@ export const customerController = {
       res.json({ message: "Customer deleted successfully" });
     } catch (error) {
       console.error(`Error deleting customer ${id}:`, error.stack);
-      res.status(500).json({
-        message: "Error deleting customer",
-        error: error.message,
-      });
+      res
+        .status(500)
+        .json({ message: "Error deleting customer", error: error.message });
     }
   },
 
@@ -198,23 +174,15 @@ export const customerController = {
       const customerCredits = await prisma.customerCredit.findMany({
         include: {
           customer: true,
-          user: { select: { username: true } },
+          createdBy: { select: { username: true } },
+          updatedBy: { select: { username: true } },
         },
-      });
-
-      const isManager = req.user.role === "MANAGER";
-      const filteredCredits = customerCredits.map((credit) => {
-        if (!isManager) {
-          const { user, created_by, ...rest } = credit;
-          return rest;
-        }
-        return credit;
       });
 
       console.log(
         `Fetched ${customerCredits.length} customer credits by user ${req.user.id}`
       );
-      res.json(filteredCredits);
+      res.json(customerCredits);
     } catch (error) {
       console.error("Error fetching customer credits:", error.stack);
       res.status(500).json({
@@ -227,41 +195,29 @@ export const customerController = {
   getCustomerCredits: async (req, res) => {
     const { customer_id } = req.params;
 
-    if (!customer_id || typeof customer_id !== "string") {
-      return res.status(400).json({ message: "Valid customer ID is required" });
-    }
-
     try {
       const customerCredits = await prisma.customerCredit.findMany({
         where: { customer_id },
         include: {
           customer: { select: { name: true } },
-          user: { select: { username: true } },
+          createdBy: { select: { username: true } },
+          updatedBy: { select: { username: true } },
         },
         orderBy: { credit_date: "desc" },
       });
 
-      if (!customerCredits || customerCredits.length === 0) {
-        return res.status(404).json({
-          message: "No credits found for this customer",
-        });
+      if (!customerCredits.length) {
+        return res
+          .status(404)
+          .json({ message: "No credits found for this customer" });
       }
-
-      const isManager = req.user.role === "MANAGER";
-      const filteredCredits = customerCredits.map((credit) => {
-        if (!isManager) {
-          const { user, created_by, ...rest } = credit;
-          return rest;
-        }
-        return credit;
-      });
 
       console.log(
         `Fetched ${customerCredits.length} credits for customer ${customer_id} by user ${req.user.id}`
       );
       res.status(200).json({
-        creditCount: filteredCredits.length,
-        credits: filteredCredits,
+        creditCount: customerCredits.length,
+        credits: customerCredits,
       });
     } catch (error) {
       console.error(
@@ -276,15 +232,42 @@ export const customerController = {
   },
 
   addCustomerCredit: async (req, res) => {
-    const { customer_id, credit_amount, description, status } = req.body;
+    console.log("Received POST /credits - req.body:", req.body);
+    console.log("Received POST /credits - req.file:", req.file);
+
+    const {
+      customer_id,
+      credit_amount,
+      paid_amount = 0,
+      medicine_name,
+      payment_method = "NONE",
+      description,
+    } = req.body;
     const payment_file = req.file
       ? path.relative(__dirname, req.file.path).replace(/\\/g, "/")
       : null;
 
-    if (!customer_id || !credit_amount) {
-      return res.status(400).json({
-        message: "Customer ID and credit amount are required",
-      });
+    if (!customer_id?.trim() || !credit_amount?.toString().trim()) {
+      console.log(
+        "Validation failed - customer_id:",
+        customer_id,
+        "credit_amount:",
+        credit_amount
+      );
+      return res
+        .status(400)
+        .json({ message: "Customer ID and credit amount are required" });
+    }
+
+    if (
+      req.file &&
+      !["image/jpeg", "image/png", "application/pdf"].includes(
+        req.file.mimetype
+      )
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Only JPEG, PNG, and PDF files are allowed" });
     }
 
     try {
@@ -296,32 +279,66 @@ export const customerController = {
       }
 
       const parsedCreditAmount = parseFloat(credit_amount);
-      if (isNaN(parsedCreditAmount) || parsedCreditAmount <= 0) {
-        return res.status(400).json({ message: "Invalid credit amount" });
-      }
+      const parsedPaidAmount = parseFloat(paid_amount || 0);
 
       if (
-        status &&
-        !["UNPAID", "PARTIALLY_PAID", "PAID"].includes(status.toUpperCase())
+        isNaN(parsedCreditAmount) ||
+        parsedCreditAmount <= 0 ||
+        parsedPaidAmount < 0
       ) {
-        return res.status(400).json({ message: "Invalid status value" });
+        console.log(
+          "Invalid amounts - credit_amount:",
+          parsedCreditAmount,
+          "paid_amount:",
+          parsedPaidAmount
+        );
+        return res
+          .status(400)
+          .json({ message: "Invalid credit or paid amount" });
       }
+
+      const unpaid_amount = parsedCreditAmount - parsedPaidAmount;
+      let status;
+      if (parsedPaidAmount === 0) status = "UNPAID";
+      else if (parsedPaidAmount < parsedCreditAmount) status = "PARTIALLY_PAID";
+      else status = "PAID";
+
+      const validPaymentMethods = [
+        "NONE",
+        "CASH",
+        "CREDIT",
+        "CBE",
+        "COOP",
+        "AWASH",
+        "EBIRR",
+      ];
+      const finalPaymentMethod = validPaymentMethods.includes(payment_method)
+        ? payment_method
+        : "NONE";
 
       const currentETTime = getEthiopianTime();
       const customerCredit = await prisma.customerCredit.create({
         data: {
           customer_id,
           credit_amount: parsedCreditAmount,
+          paid_amount: parsedPaidAmount,
+          unpaid_amount,
+          total_unpaid_amount: unpaid_amount,
+          total_paid_amount: parsedPaidAmount,
+          medicine_name: medicine_name?.trim() || null,
+          payment_method: finalPaymentMethod,
           description: description?.trim() || null,
-          status: status?.toUpperCase() || "UNPAID",
+          status,
           credit_date: currentETTime,
           payment_file,
           updated_at: currentETTime,
           created_by: req.user.id,
+          updated_by: req.user.id,
         },
         include: {
           customer: true,
-          user: { select: { username: true } },
+          createdBy: { select: { username: true } },
+          updatedBy: { select: { username: true } },
         },
       });
 
@@ -329,15 +346,9 @@ export const customerController = {
         `Created credit for customer ${customer_id} by user ${req.user.id}:`,
         customerCredit
       );
-
-      const isManager = req.user.role === "MANAGER";
-      const responseCredit = isManager
-        ? customerCredit
-        : { ...customerCredit, created_by: undefined, user: undefined };
-
       res.status(201).json({
         message: "Customer credit created successfully",
-        credit: responseCredit,
+        credit: customerCredit,
       });
     } catch (error) {
       console.error("Error adding customer credit:", error.stack);
@@ -350,59 +361,85 @@ export const customerController = {
 
   editCustomerCredit: async (req, res) => {
     const { id } = req.params;
-    const { credit_amount, description, status } = req.body;
+    const {
+      credit_amount,
+      paid_amount,
+      medicine_name,
+      payment_method,
+      description,
+    } = req.body;
     const payment_file = req.file
       ? path.relative(__dirname, req.file.path).replace(/\\/g, "/")
       : undefined;
 
-    if (!id || typeof id !== "string") {
-      return res.status(400).json({ message: "Valid credit ID is required" });
-    }
-
     try {
       const existingCredit = await prisma.customerCredit.findUnique({
         where: { id },
-        include: { user: { select: { username: true } } },
       });
       if (!existingCredit) {
         return res.status(404).json({ message: "Customer credit not found" });
       }
 
-      const parsedCreditAmount =
+      const newCreditAmount =
         credit_amount !== undefined
           ? parseFloat(credit_amount)
           : existingCredit.credit_amount;
+      const newPaidAmount =
+        paid_amount !== undefined
+          ? parseFloat(paid_amount)
+          : existingCredit.paid_amount;
 
-      if (
-        credit_amount !== undefined &&
-        (isNaN(parsedCreditAmount) || parsedCreditAmount <= 0)
-      ) {
-        return res.status(400).json({ message: "Invalid credit amount" });
+      if (isNaN(newCreditAmount) || newCreditAmount <= 0 || newPaidAmount < 0) {
+        return res
+          .status(400)
+          .json({ message: "Invalid credit or paid amount" });
       }
 
-      if (
-        status &&
-        !["UNPAID", "PARTIALLY_PAID", "PAID"].includes(status.toUpperCase())
-      ) {
-        return res.status(400).json({ message: "Invalid status value" });
-      }
+      const unpaid_amount = newCreditAmount - newPaidAmount;
+      let status;
+      if (newPaidAmount === 0) status = "UNPAID";
+      else if (newPaidAmount < newCreditAmount) status = "PARTIALLY_PAID";
+      else status = "PAID";
+
+      const validPaymentMethods = [
+        "NONE",
+        "CASH",
+        "CREDIT",
+        "CBE",
+        "COOP",
+        "AWASH",
+        "EBIRR",
+      ];
+      const updatedPaymentMethod = payment_method
+        ? validPaymentMethods.includes(payment_method)
+          ? payment_method
+          : "NONE"
+        : existingCredit.payment_method;
 
       const currentETTime = getEthiopianTime();
       const updatedCredit = await prisma.customerCredit.update({
         where: { id },
         data: {
-          credit_amount: parsedCreditAmount,
+          credit_amount: newCreditAmount,
+          paid_amount: newPaidAmount,
+          unpaid_amount,
+          total_unpaid_amount: unpaid_amount,
+          total_paid_amount: newPaidAmount,
+          medicine_name: medicine_name?.trim() ?? existingCredit.medicine_name,
+          payment_method: updatedPaymentMethod,
           description: description?.trim() ?? existingCredit.description,
-          status: status?.toUpperCase() ?? existingCredit.status,
+          status,
           payment_file:
             payment_file !== undefined
               ? payment_file
               : existingCredit.payment_file,
           updated_at: currentETTime,
+          updated_by: req.user.id,
         },
         include: {
           customer: true,
-          user: { select: { username: true } },
+          createdBy: { select: { username: true } },
+          updatedBy: { select: { username: true } },
         },
       });
 
@@ -410,15 +447,9 @@ export const customerController = {
         `Updated credit ${id} by user ${req.user.id}:`,
         updatedCredit
       );
-
-      const isManager = req.user.role === "MANAGER";
-      const responseCredit = isManager
-        ? updatedCredit
-        : { ...updatedCredit, created_by: undefined, user: undefined };
-
       res.status(200).json({
         message: "Customer credit updated successfully",
-        credit: responseCredit,
+        credit: updatedCredit,
       });
     } catch (error) {
       console.error(`Error updating customer credit ${id}:`, error.stack);
@@ -431,10 +462,6 @@ export const customerController = {
 
   deleteCustomerCredit: async (req, res) => {
     const { id } = req.params;
-
-    if (!id || typeof id !== "string") {
-      return res.status(400).json({ message: "Valid credit ID is required" });
-    }
 
     try {
       const customerCredit = await prisma.customerCredit.findUnique({
@@ -479,7 +506,8 @@ export const customerController = {
           where: filters,
           include: {
             customer: { select: { name: true } },
-            user: { select: { username: true } },
+            createdBy: { select: { username: true } },
+            updatedBy: { select: { username: true } },
           },
           orderBy: { credit_date: "desc" },
           take: Math.min(parseInt(limit), 1000),
@@ -492,15 +520,14 @@ export const customerController = {
         (sum, credit) => sum + credit.credit_amount,
         0
       );
-
-      const isManager = req.user.role === "MANAGER";
-      const filteredCredits = credits.map((credit) => {
-        if (!isManager) {
-          const { user, created_by, ...rest } = credit;
-          return rest;
-        }
-        return credit;
-      });
+      const totalPaid = credits.reduce(
+        (sum, credit) => sum + credit.paid_amount,
+        0
+      );
+      const totalUnpaid = credits.reduce(
+        (sum, credit) => sum + credit.unpaid_amount,
+        0
+      );
 
       console.log(
         `Generated report with ${credits.length} customer credits by user ${req.user.id}`
@@ -509,11 +536,13 @@ export const customerController = {
         summary: {
           creditCount: credits.length,
           totalCredits,
+          totalPaid,
+          totalUnpaid,
           totalRecords: totalCount,
           page: Math.floor(offset / limit) + 1,
           totalPages: Math.ceil(totalCount / limit),
         },
-        credits: filteredCredits,
+        credits,
       });
     } catch (error) {
       console.error("Error generating customer credit report:", error.stack);
@@ -524,3 +553,5 @@ export const customerController = {
     }
   },
 };
+
+export default customerController;

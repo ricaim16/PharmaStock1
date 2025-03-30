@@ -1,4 +1,39 @@
 import prisma from "../config/db.js";
+import path from "path";
+
+// Helper to get __dirname in ESM
+const __filename = new URL(import.meta.url).pathname;
+const __dirname = path.dirname(
+  __filename.startsWith("/") ? __filename.slice(1) : __filename
+);
+
+// Helper function to calculate work duration and payment
+export const calculateWorkDurationAndPayment = (
+  joiningDate,
+  leaveDate,
+  salary
+) => {
+  const start = new Date(joiningDate);
+  const end = leaveDate ? new Date(leaveDate) : new Date();
+  const diffMs = end - start;
+  const daysWorked = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const monthlySalary = parseFloat(salary);
+
+  const years = Math.floor(daysWorked / 365);
+  const remainingDaysAfterYears = daysWorked % 365;
+  const months = Math.floor(remainingDaysAfterYears / 30);
+  const days = remainingDaysAfterYears % 30;
+
+  const fullMonthsWorked = years * 12 + months;
+  const dailyRate = monthlySalary / 30;
+  const partialMonthPayment = days * dailyRate;
+  const totalPayment = fullMonthsWorked * monthlySalary + partialMonthPayment;
+
+  return {
+    duration: { years, months, days },
+    totalPayment: totalPayment.toFixed(2),
+  };
+};
 
 // Create Member (Manager only)
 export const createMember = async (req, res, next) => {
@@ -73,6 +108,42 @@ export const createMember = async (req, res, next) => {
       });
     }
 
+    const photoFile = req.files?.photo?.[0];
+    const certificateFile = req.files?.certificate?.[0];
+
+    console.log("Uploaded files:", {
+      photo: photoFile ? photoFile.path : "No photo uploaded",
+      certificate: certificateFile
+        ? certificateFile.path
+        : "No certificate uploaded",
+    });
+
+    if (
+      photoFile &&
+      !["image/jpeg", "image/png"].includes(photoFile.mimetype)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Photo must be a JPEG or PNG file" });
+    }
+    if (
+      certificateFile &&
+      !["image/jpeg", "image/png", "application/pdf"].includes(
+        certificateFile.mimetype
+      )
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Certificate must be a JPEG, PNG, or PDF file" });
+    }
+
+    const photoPath = photoFile
+      ? path.relative(__dirname, photoFile.path).replace(/\\/g, "/")
+      : null;
+    const certificatePath = certificateFile
+      ? path.relative(__dirname, certificateFile.path).replace(/\\/g, "/")
+      : null;
+
     const memberData = {
       user_id,
       FirstName,
@@ -80,14 +151,8 @@ export const createMember = async (req, res, next) => {
       phone: phone || null,
       position,
       address: address || null,
-      certificate:
-        req.files?.certificate && req.files.certificate[0]?.path
-          ? req.files.certificate[0].path
-          : null,
-      photo:
-        req.files?.photo && req.files.photo[0]?.path
-          ? req.files.photo[0].path
-          : null,
+      certificate: certificatePath,
+      Photo: photoPath,
       gender: gender ? gender.toUpperCase() : null,
       dob: dob ? new Date(dob) : null,
       salary: parseFloat(salary),
@@ -98,79 +163,18 @@ export const createMember = async (req, res, next) => {
     };
 
     const member = await prisma.members.create({ data: memberData });
-
-    console.log("Created Member:", member);
+    console.log(`Created Member by user ${req.user.id}:`, {
+      id: member.id,
+      Photo: member.Photo,
+      certificate: member.certificate,
+    });
     res.status(201).json({ message: "Member created successfully", member });
   } catch (error) {
     console.error("Error in createMember:", error);
-    if (error.code === "ENOENT") {
-      return res.status(500).json({
-        error:
-          "File upload failed: Unable to save file to the specified directory",
-        details: error.message,
-      });
-    }
-    next(error);
-  }
-};
-
-// Get All Members (Manager gets all employee members, excluding self)
-export const getAllMembers = async (req, res, next) => {
-  try {
-    if (req.user.role === "MANAGER") {
-      const members = await prisma.members.findMany({
-        where: {
-          user_id: { not: req.user.id },
-          role: "EMPLOYEE",
-        },
-        include: { user: true },
-      });
-      console.log("Fetched Members from DB:", members);
-      res.status(200).json({ memberCount: members.length, members });
-    } else if (req.user.role === "EMPLOYEE") {
-      const member = await prisma.members.findUnique({
-        where: { user_id: req.user.id },
-        include: { user: true },
-      });
-      if (!member) {
-        return res
-          .status(404)
-          .json({ error: "No member profile found for this employee" });
-      }
-      res.status(200).json({ memberCount: 1, members: [member] });
-    } else {
-      return res.status(403).json({ error: "Unauthorized role" });
-    }
-  } catch (error) {
-    console.error("Error in getAllMembers:", error);
-    next(error);
-  }
-};
-
-// Get Member by ID (Manager sees any, employees see self)
-export const getMemberById = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    const member = await prisma.members.findUnique({
-      where: { id },
-      include: { user: true },
+    res.status(500).json({
+      error: "Failed to create member",
+      details: error.message || "Unknown server error",
     });
-    if (!member) {
-      return res.status(404).json({ error: "Member not found" });
-    }
-
-    if (req.user.role === "EMPLOYEE" && member.user_id !== req.user.id) {
-      return res
-        .status(403)
-        .json({ error: "You can only view your own member profile" });
-    }
-
-    console.log("Fetched Member by ID:", member);
-    res.status(200).json(member);
-  } catch (error) {
-    console.error(`Error in getMemberById for ID ${req.params.id}:`, error);
-    next(error);
   }
 };
 
@@ -207,7 +211,53 @@ export const updateMember = async (req, res, next) => {
       return res.status(404).json({ error: "Member not found" });
     }
 
-    // Sync FirstName and LastName to Users
+    if (role && role.toUpperCase() !== member.user.role) {
+      return res
+        .status(400)
+        .json({ error: "Role must match the corresponding user's role" });
+    }
+    if (status && status.toUpperCase() !== member.user.status) {
+      return res
+        .status(400)
+        .json({ error: "Status must match the corresponding user's status" });
+    }
+
+    const photoFile = req.files?.photo?.[0];
+    const certificateFile = req.files?.certificate?.[0];
+
+    console.log("Uploaded files for update:", {
+      photo: photoFile ? photoFile.path : "No photo uploaded",
+      certificate: certificateFile
+        ? certificateFile.path
+        : "No certificate uploaded",
+    });
+
+    if (
+      photoFile &&
+      !["image/jpeg", "image/png"].includes(photoFile.mimetype)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Photo must be a JPEG or PNG file" });
+    }
+    if (
+      certificateFile &&
+      !["image/jpeg", "image/png", "application/pdf"].includes(
+        certificateFile.mimetype
+      )
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Certificate must be a JPEG, PNG, or PDF file" });
+    }
+
+    const photoPath = photoFile
+      ? path.relative(__dirname, photoFile.path).replace(/\\/g, "/")
+      : undefined;
+    const certificatePath = certificateFile
+      ? path.relative(__dirname, certificateFile.path).replace(/\\/g, "/")
+      : undefined;
+
     const userUpdates = {};
     if (FirstName && FirstName !== member.FirstName)
       userUpdates.FirstName = FirstName;
@@ -228,13 +278,8 @@ export const updateMember = async (req, res, next) => {
       position: position ?? member.position,
       address: address ?? member.address,
       certificate:
-        req.files?.certificate && req.files.certificate[0]?.path
-          ? req.files.certificate[0].path
-          : member.certificate,
-      photo:
-        req.files?.photo && req.files.photo[0]?.path
-          ? req.files.photo[0].path
-          : member.photo,
+        certificatePath !== undefined ? certificatePath : member.certificate,
+      Photo: photoPath !== undefined ? photoPath : member.Photo,
       gender: gender ? gender.toUpperCase() : member.gender,
       dob: dob ? new Date(dob) : member.dob,
       salary: salary !== undefined ? parseFloat(salary) : member.salary,
@@ -249,25 +294,24 @@ export const updateMember = async (req, res, next) => {
       data: memberUpdateData,
     });
 
-    console.log(`Updated Member ID: ${id}`, updatedMember);
+    console.log(`Updated Member ${id} by user ${req.user.id}:`, {
+      Photo: updatedMember.Photo,
+      certificate: updatedMember.certificate,
+    });
     res.status(200).json({
       message: "Member updated successfully",
       member: updatedMember,
     });
   } catch (error) {
     console.error(`Error in updateMember for ID ${req.params.id}:`, error);
-    if (error.code === "ENOENT") {
-      return res.status(500).json({
-        error:
-          "File upload failed: Unable to save file to the specified directory",
-        details: error.message,
-      });
-    }
-    next(error);
+    res.status(500).json({
+      error: "Failed to update member",
+      details: error.message || "Unknown server error",
+    });
   }
 };
 
-// Update Self Member (Employee only, restricted fields, sync to Users)
+// Update Self Member (Employee only)
 export const updateSelfMember = async (req, res, next) => {
   try {
     if (req.user.role !== "EMPLOYEE") {
@@ -287,7 +331,42 @@ export const updateSelfMember = async (req, res, next) => {
     const { FirstName, LastName, phone, address, gender, dob, biography } =
       req.body;
 
-    // Sync FirstName and LastName to Users
+    const photoFile = req.files?.photo?.[0];
+    const certificateFile = req.files?.certificate?.[0];
+
+    console.log("Uploaded files for self update:", {
+      photo: photoFile ? photoFile.path : "No photo uploaded",
+      certificate: certificateFile
+        ? certificateFile.path
+        : "No certificate uploaded",
+    });
+
+    if (
+      photoFile &&
+      !["image/jpeg", "image/png"].includes(photoFile.mimetype)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Photo must be a JPEG or PNG file" });
+    }
+    if (
+      certificateFile &&
+      !["image/jpeg", "image/png", "application/pdf"].includes(
+        certificateFile.mimetype
+      )
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Certificate must be a JPEG, PNG, or PDF file" });
+    }
+
+    const photoPath = photoFile
+      ? path.relative(__dirname, photoFile.path).replace(/\\/g, "/")
+      : undefined;
+    const certificatePath = certificateFile
+      ? path.relative(__dirname, certificateFile.path).replace(/\\/g, "/")
+      : undefined;
+
     const userUpdates = {};
     if (FirstName && FirstName !== member.FirstName)
       userUpdates.FirstName = FirstName;
@@ -301,20 +380,14 @@ export const updateSelfMember = async (req, res, next) => {
       });
     }
 
-    // Restrict employee updates to allowed fields
     const memberUpdateData = {
       FirstName: FirstName ?? member.FirstName,
       LastName: LastName ?? member.LastName,
       phone: phone ?? member.phone,
       address: address ?? member.address,
       certificate:
-        req.files?.certificate && req.files.certificate[0]?.path
-          ? req.files.certificate[0].path
-          : member.certificate,
-      photo:
-        req.files?.photo && req.files.photo[0]?.path
-          ? req.files.photo[0].path
-          : member.photo,
+        certificatePath !== undefined ? certificatePath : member.certificate,
+      Photo: photoPath !== undefined ? photoPath : member.Photo,
       gender: gender ? gender.toUpperCase() : member.gender,
       dob: dob ? new Date(dob) : member.dob,
       biography: biography ?? member.biography,
@@ -325,20 +398,130 @@ export const updateSelfMember = async (req, res, next) => {
       data: memberUpdateData,
     });
 
+    console.log(`Updated Self Member by user ${req.user.id}:`, {
+      Photo: updatedMember.Photo,
+      certificate: updatedMember.certificate,
+    });
     res.status(200).json({
       message: "Member profile updated successfully",
       member: updatedMember,
     });
   } catch (error) {
     console.error("Error in updateSelfMember:", error);
-    if (error.code === "ENOENT") {
-      return res.status(500).json({
-        error:
-          "File upload failed: Unable to save file to the specified directory",
-        details: error.message,
+    res.status(500).json({
+      error: "Failed to update self member",
+      details: error.message || "Unknown server error",
+    });
+  }
+};
+
+// Get All Members (Active only)
+export const getAllMembers = async (req, res, next) => {
+  try {
+    if (req.user.role === "MANAGER") {
+      const members = await prisma.members.findMany({
+        where: {
+          user_id: { not: req.user.id },
+          role: "EMPLOYEE",
+          status: "ACTIVE",
+        },
+        include: { user: true },
       });
+      console.log(`Fetched ${members.length} members by user ${req.user.id}`);
+      res.status(200).json({ memberCount: members.length, members });
+    } else if (req.user.role === "EMPLOYEE") {
+      const member = await prisma.members.findUnique({
+        where: { user_id: req.user.id },
+        include: { user: true },
+      });
+      if (!member) {
+        return res
+          .status(404)
+          .json({ error: "No member profile found for this employee" });
+      }
+      console.log(`Fetched self member by user ${req.user.id}`);
+      res.status(200).json({ memberCount: 1, members: [member] });
+    } else {
+      return res.status(403).json({ error: "Unauthorized role" });
     }
-    next(error);
+  } catch (error) {
+    console.error("Error in getAllMembers:", error);
+    res.status(500).json({
+      error: "Failed to fetch members",
+      details: error.message || "Unknown server error",
+    });
+  }
+};
+
+// Get All Members Including Inactive (for filtering)
+export const getAllMembersIncludingInactive = async (req, res, next) => {
+  try {
+    if (req.user.role !== "MANAGER") {
+      return res
+        .status(403)
+        .json({ error: "Only managers can access this endpoint" });
+    }
+    const members = await prisma.members.findMany({
+      where: {
+        user_id: { not: req.user.id },
+        role: "EMPLOYEE",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            FirstName: true,
+            LastName: true,
+            username: true,
+            role: true,
+            status: true,
+          },
+        },
+      },
+    });
+    console.log(
+      `Fetched ${members.length} members (including inactive) by user ${req.user.id}`
+    );
+    res.status(200).json(members);
+  } catch (error) {
+    console.error("Error in getAllMembersIncludingInactive:", error);
+    res.status(500).json({
+      error: "Failed to fetch members",
+      details: error.message || "Unknown server error",
+    });
+  }
+};
+
+// Get Member by ID
+export const getMemberById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const member = await prisma.members.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+    if (!member) {
+      return res.status(404).json({ error: "Member not found" });
+    }
+
+    if (req.user.role === "EMPLOYEE" && member.user_id !== req.user.id) {
+      return res
+        .status(403)
+        .json({ error: "You can only view your own member profile" });
+    }
+
+    console.log(`Fetched member ${id} by user ${req.user.id}`, {
+      Photo: member.Photo,
+      certificate: member.certificate,
+    });
+    res.status(200).json(member);
+  } catch (error) {
+    console.error(`Error in getMemberById for ID ${req.params.id}:`, error);
+    res.status(500).json({
+      error: "Failed to fetch member",
+      details: error.message || "Unknown server error",
+    });
   }
 };
 
@@ -352,8 +535,12 @@ export const deleteMember = async (req, res, next) => {
     }
 
     const { id } = req.params;
+    const { leaveDate } = req.body;
 
-    const member = await prisma.members.findUnique({ where: { id } });
+    const member = await prisma.members.findUnique({
+      where: { id },
+      include: { user: true },
+    });
     if (!member) {
       return res.status(404).json({ error: "Member not found" });
     }
@@ -364,11 +551,27 @@ export const deleteMember = async (req, res, next) => {
         .json({ error: "Manager cannot delete their own member profile" });
     }
 
-    await prisma.members.delete({ where: { id } });
-    console.log("Deleted Member with ID:", id);
-    res.status(200).json({ message: "Member deleted successfully" });
+    const { duration, totalPayment } = calculateWorkDurationAndPayment(
+      member.joining_date,
+      leaveDate,
+      member.salary
+    );
+
+    await prisma.members.delete({
+      where: { id },
+    });
+
+    console.log(`Deleted Member ${id} by user ${req.user.id}`);
+    res.status(200).json({
+      message: "Member deleted successfully",
+      workDuration: duration,
+      finalPayment: totalPayment,
+    });
   } catch (error) {
     console.error(`Error in deleteMember for ID ${req.params.id}:`, error);
-    next(error);
+    res.status(500).json({
+      error: "Failed to delete member",
+      details: error.message || "Unknown server error",
+    });
   }
 };
