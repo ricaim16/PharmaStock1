@@ -6,8 +6,10 @@ const MemberDetailsModal = ({ member, onClose }) => {
 
   if (!member) return null;
 
-  // Fallback for API_URL (replace with your env variable in production)
-  const API_URL = "http://localhost:5000";
+  const API_URL = "http://localhost:5000"; // Replace with your env variable in production
+
+  // Debug: Log member object to verify photo field
+  console.log("MemberDetailsModal member:", member);
 
   const openImageModal = (image) => {
     setSelectedImage(image);
@@ -22,7 +24,6 @@ const MemberDetailsModal = ({ member, onClose }) => {
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg shadow-lg w-[80%] max-w-5xl h-[90vh] relative">
-        {/* Sticky Header */}
         <div className="sticky top-0 z-100 bg-white py-6 flex justify-between items-center border-b shadow-lg">
           <h2 id="modal-title" className="text-xl font-bold text-center flex-1">
             Member Details
@@ -35,21 +36,8 @@ const MemberDetailsModal = ({ member, onClose }) => {
             ✕
           </button>
         </div>
-        {/* Scrollable Content */}
         <div className="overflow-y-auto h-[calc(90vh-150px)] pt-4">
           <div className="grid grid-cols-3 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-700">ID</p>
-              <p className="w-full px-4 py-2 mt-1 border rounded-md bg-gray-100">
-                {member.id}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-700">User ID</p>
-              <p className="w-full px-4 py-2 mt-1 border rounded-md bg-gray-100">
-                {member.user_id}
-              </p>
-            </div>
             <div>
               <p className="text-sm font-medium text-gray-700">First Name</p>
               <p className="w-full px-4 py-2 mt-1 border rounded-md bg-gray-100">
@@ -160,15 +148,15 @@ const MemberDetailsModal = ({ member, onClose }) => {
             </div>
             <div className="col-span-1">
               <p className="text-sm font-medium text-gray-700">Photo</p>
-              {member.photo ? (
+              {member.Photo ? (
                 <div className="mt-2 flex justify-center items-center w-full h-[200px] overflow-hidden">
                   <img
-                    src={`${API_URL}/uploads/${member.photo.split("\\").pop()}`}
+                    src={`${API_URL}/uploads/${member.Photo.split("\\").pop()}`}
                     alt="Member Photo"
                     className="max-w-full max-h-full object-contain rounded cursor-pointer"
                     onClick={() =>
                       openImageModal(
-                        `${API_URL}/uploads/${member.photo.split("\\").pop()}`
+                        `${API_URL}/uploads/${member.Photo.split("\\").pop()}`
                       )
                     }
                     onError={(e) => {
@@ -188,7 +176,6 @@ const MemberDetailsModal = ({ member, onClose }) => {
         </div>
       </div>
 
-      {/* Full Image Modal */}
       {isImageModalOpen && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-70 flex items-center justify-center z-60">
           <div className="bg-white p-4 rounded-lg shadow-lg max-w-3xl max-h-full overflow-hidden relative">

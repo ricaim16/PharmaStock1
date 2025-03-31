@@ -7,9 +7,11 @@ import UserManagement from "./pages/UserManagement";
 import MemberManagement from "./pages/MemberManagement";
 import SupplierManagement from "./pages/SupplierManagement";
 import SupplierCreditManagement from "./pages/SupplierCreditManagement";
+import SupplierCreditReport from "./components/SupplierCreditReport"; // Add SupplierCreditReport
 import InventoryManagement from "./pages/InventoryManagement";
 import CustomerManagement from "./pages/CustomerManagement";
-import CustomerCreditManagement from "./pages/CustomerCreditManagement"; // Add this
+import CustomerCreditManagement from "./pages/CustomerCreditManagement";
+import CreditReport from "./components/CreditReport"; // Customer CreditReport
 import SalesManagement from "./pages/SalesManagement";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -44,8 +46,9 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* Supplier Management Routes */}
           <Route
-            path="/supplier-management"
+            path="/supplier-management/*"
             element={
               <ProtectedRoute>
                 <SupplierManagement />
@@ -53,7 +56,7 @@ function App() {
             }
           />
           <Route
-            path="/credit-management"
+            path="/supplier-management/credits"
             element={
               <ProtectedRoute>
                 <SupplierCreditManagement />
@@ -61,13 +64,14 @@ function App() {
             }
           />
           <Route
-            path="/inventory-management/*"
+            path="/supplier-management/credit-report"
             element={
               <ProtectedRoute>
-                <InventoryManagement />
+                <SupplierCreditReport />
               </ProtectedRoute>
             }
           />
+          {/* Customer Management Routes */}
           <Route
             path="/customer-management/*"
             element={
@@ -77,10 +81,27 @@ function App() {
             }
           />
           <Route
-            path="/customer-management/credits/*"
+            path="/customer-management/credits"
             element={
               <ProtectedRoute>
                 <CustomerCreditManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer-management/credit-report"
+            element={
+              <ProtectedRoute>
+                <CreditReport />
+              </ProtectedRoute>
+            }
+          />
+          {/* Other Management Routes */}
+          <Route
+            path="/inventory-management/*"
+            element={
+              <ProtectedRoute>
+                <InventoryManagement />
               </ProtectedRoute>
             }
           />

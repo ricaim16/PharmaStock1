@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { createSupplier, updateSupplier } from "../api/supplierApi";
+import { addSupplier, editSupplier } from "../api/supplierApi";
 
 const SupplierForm = ({ supplier, onSupplierSaved, onClose }) => {
   const [formData, setFormData] = useState({
@@ -12,7 +12,6 @@ const SupplierForm = ({ supplier, onSupplierSaved, onClose }) => {
     payment_info_ebirr: "",
     location: "",
     email: "",
-    photo: null,
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,17 +28,29 @@ const SupplierForm = ({ supplier, onSupplierSaved, onClose }) => {
         payment_info_ebirr: supplier.payment_info_ebirr || "",
         location: supplier.location || "",
         email: supplier.email || "",
-        photo: null,
       });
     }
   }, [supplier]);
 
   const handleChange = (e) => {
-    const { name, value, files } = e.target;
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: files ? files[0] : value,
+      [name]: value,
     }));
+  };
+
+  const validateForm = () => {
+    if (!formData.supplier_name.trim()) return "Supplier name is required";
+    if (!formData.contact_info.trim()) return "Contact info is required";
+    if (!formData.location.trim()) return "Location is required";
+    if (!/^\+?\d{9,13}$/.test(formData.contact_info)) {
+      return "Contact info must be a valid phone number (9-13 digits, optional +)";
+    }
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      return "Invalid email format";
+    }
+    return null;
   };
 
   const handleSubmit = async (e) => {
@@ -47,30 +58,29 @@ const SupplierForm = ({ supplier, onSupplierSaved, onClose }) => {
     setLoading(true);
     setError("");
 
-    const data = new FormData();
-    Object.keys(formData).forEach((key) => {
-      if (formData[key] !== null && formData[key] !== undefined) {
-        data.append(key, formData[key]);
-      }
-    });
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      setLoading(false);
+      return;
+    }
 
     try {
       let response;
       if (supplier?.id) {
-        // For update, only send photo if a new one is selected
-        if (!formData.photo) {
-          data.delete("photo");
-        }
-        response = await updateSupplier(supplier.id, data);
+        response = await editSupplier(supplier.id, formData);
       } else {
-        response = await createSupplier(data);
+        response = await addSupplier(formData);
       }
-      setError("");
-      onSupplierSaved(response);
+      onSupplierSaved(response); // Pass the supplier object
       onClose();
     } catch (err) {
-      console.error("Supplier save error:", err);
-      setError(err || "Failed to save supplier");
+      console.error("Supplier save error:", {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+      });
+      setError(err.response?.data?.message || "Failed to save supplier");
     } finally {
       setLoading(false);
     }
@@ -201,36 +211,6 @@ const SupplierForm = ({ supplier, onSupplierSaved, onClose }) => {
                 onChange={handleChange}
                 className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Photo
-              </label>
-              <input
-                type="file"
-                name="photo"
-                onChange={handleChange}
-                accept="image/*"
-                className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              {supplier?.photo && !formData.photo && (
-                <div className="mt-2">
-                  <img
-                    src={`http://localhost:5000/uploads/${
-                      supplier.photo
-                    }?t=${Date.now()}`}
-                    alt="Current supplier"
-                    className="w-32 h-32 object-cover rounded"
-                    onError={(e) => {
-                      console.error(`Failed to load image: ${supplier.photo}`);
-                      e.target.src = "/fallback-image.jpg";
-                    }}
-                  />
-                  <p className="text-sm text-gray-600">
-                    Current photo (select new file to replace)
-                  </p>
-                </div>
-              )}
             </div>
           </div>
           <div className="flex justify-end space-x-2 mt-4">

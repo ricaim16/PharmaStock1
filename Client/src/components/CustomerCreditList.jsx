@@ -1,4 +1,3 @@
-// components/CustomerCreditList.jsx
 import { useState, useEffect, useCallback } from "react";
 import {
   getAllCustomers,
@@ -6,34 +5,34 @@ import {
   deleteCustomerCredit,
 } from "../api/customerApi.js";
 import CustomerCreditForm from "./CustomerCreditForm.jsx";
-import { useLocation } from "react-router-dom";
-
-const currentUser = { role: "MANAGER" }; // Mock user role
+import { useLocation, Link } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 
 const CustomerCreditList = () => {
   const [credits, setCredits] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isViewOpen, setIsViewOpen] = useState(false);
   const [editCredit, setEditCredit] = useState(null);
+  const [viewCredit, setViewCredit] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [overdueCredits, setOverdueCredits] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [userRole, setUserRole] = useState(null);
   const location = useLocation();
 
   const formatEAT = useCallback((date) => {
-    const options = {
+    return new Date(date).toLocaleString("en-US", {
       timeZone: "Africa/Addis_Ababa",
       year: "numeric",
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      second: "2-digit",
       hour12: true,
-    };
-    return new Date(date).toLocaleString("en-US", options);
+    });
   }, []);
 
   const isOverdueByTwoMonths = useCallback((creditDate) => {
@@ -43,9 +42,20 @@ const CustomerCreditList = () => {
   }, []);
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setError("No authentication token found. Please log in.");
+      return;
+    }
+    try {
+      const decoded = jwtDecode(token);
+      setUserRole(decoded.role.toUpperCase());
+    } catch (err) {
+      setError("Invalid token format. Please log in again.");
+      return;
+    }
     const params = new URLSearchParams(location.search);
     const customerIdFromUrl = params.get("customerId");
-    console.log("useEffect triggered, customerIdFromUrl:", customerIdFromUrl);
     fetchCustomers(customerIdFromUrl);
   }, [location.search]);
 
@@ -54,39 +64,25 @@ const CustomerCreditList = () => {
     setError(null);
     try {
       const data = await getAllCustomers();
-      console.log("Customers fetched:", data);
-      if (!data || data.length === 0) {
-        setError("No customers found.");
-        setCustomers([]);
-        return;
-      }
-      setCustomers(data);
-      const initialCustomerId =
-        defaultCustomerId || (data.length > 0 ? data[0].id : "");
-      if (initialCustomerId) {
+      setCustomers(data || []);
+      if (data && data.length > 0) {
+        const initialCustomerId = defaultCustomerId || data[0].id;
         setSelectedCustomerId(initialCustomerId);
         fetchCredits(initialCustomerId);
       }
     } catch (err) {
-      console.error("Fetch customers error:", err.message);
-      setError(
-        "Failed to fetch customers: " + (err.message || "Unknown error")
-      );
+      setError("Failed to fetch customers: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
   const fetchCredits = async (customerId) => {
-    if (!customerId) {
-      setError("Please select a customer to view credits.");
-      return;
-    }
+    if (!customerId) return;
     setLoading(true);
     setError(null);
     try {
       const data = await getCustomerCredits(customerId);
-      console.log("Credits fetched:", data);
       const sortedCredits = (data.credits || []).sort(
         (a, b) => new Date(b.credit_date) - new Date(a.credit_date)
       );
@@ -98,8 +94,7 @@ const CustomerCreditList = () => {
         )
       );
     } catch (err) {
-      console.error("Fetch credits error:", err.message);
-      setError("Failed to fetch credits: " + (err.message || "Unknown error"));
+      setError("Failed to fetch credits: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -112,9 +107,9 @@ const CustomerCreditList = () => {
       await deleteCustomerCredit(id);
       setCredits((prev) => prev.filter((cred) => cred.id !== id));
       setOverdueCredits((prev) => prev.filter((cred) => cred.id !== id));
-      setError(null);
+      fetchCredits(selectedCustomerId); // Refresh after deletion
     } catch (err) {
-      setError("Failed to delete credit: " + (err.message || "Unknown error"));
+      setError("Failed to delete credit: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -123,32 +118,25 @@ const CustomerCreditList = () => {
   const handleSave = useCallback(
     (newCredit) => {
       if (!newCredit || typeof newCredit !== "object") {
-        console.error("Invalid newCredit object:", newCredit);
-        setError("Failed to save credit: Invalid data received");
+        setError("Invalid credit data received");
         return;
       }
-      if (editCredit) {
-        setCredits((prev) =>
-          prev.map((cred) => (cred.id === newCredit.id ? newCredit : cred))
-        );
-        setOverdueCredits((prev) =>
-          newCredit.status === "UNPAID" &&
-          isOverdueByTwoMonths(newCredit.credit_date)
+      setCredits((prev) =>
+        editCredit
+          ? prev.map((cred) => (cred.id === newCredit.id ? newCredit : cred))
+          : [newCredit, ...prev]
+      );
+      setOverdueCredits((prev) =>
+        newCredit.status === "UNPAID" &&
+        isOverdueByTwoMonths(newCredit.credit_date)
+          ? editCredit
             ? prev.map((cred) => (cred.id === newCredit.id ? newCredit : cred))
-            : prev.filter((cred) => cred.id !== newCredit.id)
-        );
-        setEditCredit(null);
-      } else {
-        setCredits((prev) => [newCredit, ...prev]);
-        if (
-          newCredit.status === "UNPAID" &&
-          isOverdueByTwoMonths(newCredit.credit_date)
-        ) {
-          setOverdueCredits((prev) => [newCredit, ...prev]);
-        }
-      }
+            : [newCredit, ...prev]
+          : prev.filter((cred) => cred.id !== newCredit.id)
+      );
       setIsFormOpen(false);
-      fetchCredits(selectedCustomerId);
+      setEditCredit(null);
+      fetchCredits(selectedCustomerId); // Refresh after save
     },
     [editCredit, selectedCustomerId, isOverdueByTwoMonths]
   );
@@ -165,23 +153,39 @@ const CustomerCreditList = () => {
     setIsFormOpen(true);
   };
 
-  const totalCreditAmount = credits.reduce((sum, cred) => {
-    return (
-      sum + (cred && cred.credit_amount ? parseFloat(cred.credit_amount) : 0)
-    );
-  }, 0);
+  const handleView = (credit) => {
+    setViewCredit(credit);
+    setIsViewOpen(true);
+  };
+
+  const totalCreditAmount = credits.reduce(
+    (sum, cred) => sum + (parseFloat(cred.credit_amount) || 0),
+    0
+  );
+  const totalPaidAmount = credits.reduce(
+    (sum, cred) => sum + (parseFloat(cred.paid_amount) || 0),
+    0
+  );
+  const totalUnpaidAmount = credits.reduce(
+    (sum, cred) => sum + (parseFloat(cred.unpaid_amount) || 0),
+    0
+  );
 
   const filteredCustomers = customers.filter((customer) =>
     customer?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const isManager = currentUser.role === "MANAGER";
-
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800">
-        Customer Credits
-      </h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-bold text-gray-800">Customer Credits</h2>
+        <Link
+          to="/customer-management/credit-report"
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Generate Credit Report
+        </Link>
+      </div>
 
       {loading && (
         <div className="flex justify-center mb-4">
@@ -232,7 +236,7 @@ const CustomerCreditList = () => {
         </div>
       </div>
 
-      {selectedCustomerId ? (
+      {selectedCustomerId && (
         <>
           <button
             onClick={() => setIsFormOpen(true)}
@@ -254,18 +258,104 @@ const CustomerCreditList = () => {
             />
           )}
 
+          {isViewOpen && viewCredit && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+              <div className="bg-white p-6 rounded shadow-lg max-w-lg w-full">
+                <h3 className="text-xl font-bold mb-4">Credit Details</h3>
+                <p>
+                  <strong>Customer:</strong>{" "}
+                  {viewCredit.customer?.name || "N/A"}
+                </p>
+                <p>
+                  <strong>Credit Amount:</strong>{" "}
+                  {parseFloat(viewCredit.credit_amount || 0).toFixed(2)}
+                </p>
+                <p>
+                  <strong>Paid Amount:</strong>{" "}
+                  {parseFloat(viewCredit.paid_amount || 0).toFixed(2)}
+                </p>
+                <p>
+                  <strong>Unpaid Amount:</strong>{" "}
+                  {parseFloat(viewCredit.unpaid_amount || 0).toFixed(2)}
+                </p>
+                <p>
+                  <strong>Medicine Name:</strong>{" "}
+                  {viewCredit.medicine_name || "N/A"}
+                </p>
+                <p>
+                  <strong>Payment Method:</strong>{" "}
+                  {viewCredit.payment_method || "N/A"}
+                </p>
+                <p>
+                  <strong>Description:</strong>{" "}
+                  {viewCredit.description || "N/A"}
+                </p>
+                <p>
+                  <strong>Status:</strong> {viewCredit.status || "N/A"}
+                </p>
+                {viewCredit.payment_file && (
+                  <p>
+                    <strong>Payment File:</strong>{" "}
+                    <a
+                      href={`http://localhost:5000/uploads/${viewCredit.payment_file}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View File
+                    </a>
+                  </p>
+                )}
+                <p>
+                  <strong>Credit Date:</strong>{" "}
+                  {formatEAT(viewCredit.credit_date)}
+                </p>
+                <p>
+                  <strong>Last Updated:</strong>{" "}
+                  {formatEAT(viewCredit.updated_at)}
+                </p>
+                {userRole === "MANAGER" && (
+                  <>
+                    <p>
+                      <strong>Created By:</strong>{" "}
+                      {viewCredit.createdBy?.username || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Updated By:</strong>{" "}
+                      {viewCredit.updatedBy?.username || "N/A"}
+                    </p>
+                  </>
+                )}
+                <button
+                  onClick={() => setIsViewOpen(false)}
+                  className="mt-4 bg-gray-500 text-white p-2 rounded hover:bg-gray-600"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="overflow-x-auto bg-white rounded-lg shadow">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-gray-200">
                   <th className="border p-2">Customer Name</th>
-                  <th className="border p-2">Amount</th>
+                  <th className="border p-2">Credit Amount</th>
+                  <th className="border p-2">Paid Amount</th>
+                  <th className="border p-2">Unpaid Amount</th>
+                  <th className="border p-2">Medicine Name</th>
+                  <th className="border p-2">Payment Method</th>
                   <th className="border p-2">Description</th>
                   <th className="border p-2">Status</th>
                   <th className="border p-2">Payment File</th>
                   <th className="border p-2">Credit Date</th>
                   <th className="border p-2">Last Updated</th>
-                  {isManager && <th className="border p-2">Created By</th>}
+                  {userRole === "MANAGER" && (
+                    <th className="border p-2">Created By</th>
+                  )}
+                  {userRole === "MANAGER" && (
+                    <th className="border p-2">Updated By</th>
+                  )}
                   <th className="border p-2">Actions</th>
                 </tr>
               </thead>
@@ -273,45 +363,55 @@ const CustomerCreditList = () => {
                 {credits.length === 0 && !loading ? (
                   <tr>
                     <td
-                      colSpan={isManager ? 9 : 8}
+                      colSpan={userRole === "MANAGER" ? 14 : 12}
                       className="border p-2 text-center"
                     >
-                      No credits available for this customer.
+                      No credits available.
                     </td>
                   </tr>
                 ) : (
                   credits.map((cred) => (
                     <tr
-                      key={cred?.id || Math.random()} // Fallback key if id is missing
+                      key={cred.id}
                       className={
-                        cred?.status === "UNPAID" &&
+                        cred.status === "UNPAID" &&
                         isOverdueByTwoMonths(cred.credit_date)
                           ? "bg-red-100"
                           : "hover:bg-gray-100"
                       }
                     >
                       <td className="border p-2">
-                        {cred?.customer?.name || "N/A"}
+                        {cred.customer?.name || "N/A"}
                       </td>
                       <td className="border p-2">
-                        {cred?.credit_amount
-                          ? parseFloat(cred.credit_amount).toFixed(2)
-                          : "N/A"}
+                        {parseFloat(cred.credit_amount || 0).toFixed(2)}
                       </td>
                       <td className="border p-2">
-                        {cred?.description || "N/A"}
+                        {parseFloat(cred.paid_amount || 0).toFixed(2)}
+                      </td>
+                      <td className="border p-2">
+                        {parseFloat(cred.unpaid_amount || 0).toFixed(2)}
+                      </td>
+                      <td className="border p-2">
+                        {cred.medicine_name || "N/A"}
+                      </td>
+                      <td className="border p-2">
+                        {cred.payment_method || "N/A"}
+                      </td>
+                      <td className="border p-2">
+                        {cred.description || "N/A"}
                       </td>
                       <td
                         className={`border p-2 ${
-                          cred?.status === "UNPAID"
+                          cred.status === "UNPAID"
                             ? "text-red-600"
                             : "text-green-600"
                         }`}
                       >
-                        {cred?.status || "N/A"}
+                        {cred.status || "N/A"}
                       </td>
                       <td className="border p-2">
-                        {cred?.payment_file ? (
+                        {cred.payment_file ? (
                           <a
                             href={`http://localhost:5000/uploads/${cred.payment_file}`}
                             target="_blank"
@@ -325,28 +425,38 @@ const CustomerCreditList = () => {
                         )}
                       </td>
                       <td className="border p-2">
-                        {cred?.credit_date
-                          ? formatEAT(cred.credit_date)
-                          : "N/A"}
+                        {cred.credit_date ? formatEAT(cred.credit_date) : "N/A"}
                       </td>
                       <td className="border p-2">
-                        {cred?.updated_at ? formatEAT(cred.updated_at) : "N/A"}
+                        {cred.updated_at ? formatEAT(cred.updated_at) : "N/A"}
                       </td>
-                      {isManager && (
+                      {userRole === "MANAGER" && (
                         <td className="border p-2">
-                          {cred?.user?.username || "N/A"}
+                          {cred.createdBy?.username || "N/A"}
+                        </td>
+                      )}
+                      {userRole === "MANAGER" && (
+                        <td className="border p-2">
+                          {cred.updatedBy?.username || "N/A"}
                         </td>
                       )}
                       <td className="border p-2 space-x-2">
                         <button
-                          onClick={() => handleEdit(cred)}
+                          onClick={() => handleView(cred)}
                           className="bg-blue-500 text-white p-1 rounded hover:bg-blue-600 disabled:bg-blue-300"
+                          disabled={loading}
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleEdit(cred)}
+                          className="bg-yellow-500 text-white p-1 rounded hover:bg-yellow-600 disabled:bg-yellow-300"
                           disabled={loading}
                         >
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(cred?.id)}
+                          onClick={() => handleDelete(cred.id)}
                           className="bg-red-500 text-white p-1 rounded hover:bg-red-600 disabled:bg-red-300"
                           disabled={loading}
                         >
@@ -361,7 +471,12 @@ const CustomerCreditList = () => {
                 <tr className="bg-gray-100 font-bold">
                   <td className="border p-2">Total</td>
                   <td className="border p-2">{totalCreditAmount.toFixed(2)}</td>
-                  <td colSpan={isManager ? 7 : 6} className="border p-2"></td>
+                  <td className="border p-2">{totalPaidAmount.toFixed(2)}</td>
+                  <td className="border p-2">{totalUnpaidAmount.toFixed(2)}</td>
+                  <td
+                    colSpan={userRole === "MANAGER" ? 10 : 8}
+                    className="border p-2"
+                  ></td>
                 </tr>
               </tfoot>
             </table>
@@ -377,20 +492,16 @@ const CustomerCreditList = () => {
               </p>
               <ul className="list-disc pl-5">
                 {overdueCredits.map((cred) => (
-                  <li key={cred?.id || Math.random()} className="text-red-600">
-                    {cred?.credit_amount || "N/A"} -{" "}
-                    {cred?.description || "N/A"} (Due since:{" "}
-                    {cred?.credit_date ? formatEAT(cred.credit_date) : "N/A"})
+                  <li key={cred.id} className="text-red-600">
+                    {parseFloat(cred.credit_amount).toFixed(2)} -{" "}
+                    {cred.medicine_name || "N/A"} ({cred.description || "N/A"})
+                    - Due since: {formatEAT(cred.credit_date)}
                   </li>
                 ))}
               </ul>
             </div>
           )}
         </>
-      ) : (
-        <div className="text-center text-gray-600">
-          Please select a customer to view or add credits.
-        </div>
       )}
     </div>
   );

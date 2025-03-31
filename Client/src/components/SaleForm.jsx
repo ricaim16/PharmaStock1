@@ -12,7 +12,7 @@ const SaleForm = ({ sale, onSave, onCancel }) => {
     quantity: "",
     price: "",
     total_amount: "",
-    payment_method: "NONE",
+    payment_method: "CBE",
     prescription: false,
     product_name: "",
     product_batch_number: "",
@@ -33,7 +33,7 @@ const SaleForm = ({ sale, onSave, onCancel }) => {
         quantity: sale.quantity || "",
         price: sale.price || "",
         total_amount: sale.total_amount || "",
-        payment_method: sale.payment_method || "NONE",
+        payment_method: sale.payment_method || "CBE",
         prescription: sale.prescription || false,
         product_name: sale.product_name || "",
         product_batch_number: sale.product_batch_number || "",
@@ -56,7 +56,42 @@ const SaleForm = ({ sale, onSave, onCancel }) => {
       setMedicines(medRes);
       setDosageForms(doseRes);
     } catch (err) {
-      setError("Failed to load dropdown data");
+      setError("Failed to load dropdown data: " + err.message);
+    }
+  };
+
+  const updateFormFields = (medicineId, dosageFormId) => {
+    if (!medicineId || !dosageFormId) return;
+
+    const selectedMedicine = medicines.find((med) => med.id === medicineId);
+    if (selectedMedicine) {
+      setFormData((prev) => ({
+        ...prev,
+        price: selectedMedicine.sell_price || 0,
+        product_batch_number: selectedMedicine.batch_number || "",
+        product_name: selectedMedicine.medicine_name || prev.product_name,
+        quantity: "",
+        total_amount: "",
+        prescription: selectedMedicine.required_prescription
+          ? prev.prescription
+          : false,
+      }));
+    }
+  };
+
+  const handleMedicineChange = (e) => {
+    const medicineId = e.target.value;
+    setFormData((prev) => ({ ...prev, medicine_id: medicineId }));
+    if (formData.dosage_form_id) {
+      updateFormFields(medicineId, formData.dosage_form_id);
+    }
+  };
+
+  const handleDosageChange = (e) => {
+    const dosageFormId = e.target.value;
+    setFormData((prev) => ({ ...prev, dosage_form_id: dosageFormId }));
+    if (formData.medicine_id) {
+      updateFormFields(formData.medicine_id, dosageFormId);
     }
   };
 
@@ -67,16 +102,14 @@ const SaleForm = ({ sale, onSave, onCancel }) => {
         ...prev,
         [name]: type === "checkbox" ? checked : value,
       };
-      if (name === "quantity" || name === "price") {
-        const qty =
-          name === "quantity"
-            ? parseInt(value) || 0
-            : parseInt(prev.quantity) || 0;
-        const prc =
-          name === "price"
-            ? parseFloat(value) || 0
-            : parseFloat(prev.price) || 0;
-        newData.total_amount = qty * prc;
+      if (name === "quantity" && prev.medicine_id && prev.dosage_form_id) {
+        const selectedMedicine = medicines.find(
+          (med) => med.id === prev.medicine_id
+        );
+        newData.total_amount =
+          value && selectedMedicine?.sell_price
+            ? parseInt(value) * selectedMedicine.sell_price
+            : "";
       }
       return newData;
     });
@@ -87,32 +120,47 @@ const SaleForm = ({ sale, onSave, onCancel }) => {
     setIsSubmitting(true);
     setError(null);
 
-    const requiredFields = [
-      "customer_id",
-      "medicine_id",
-      "dosage_form_id",
-      "quantity",
-      "price",
-    ];
+    const requiredFields = ["medicine_id", "dosage_form_id", "quantity"];
     if (requiredFields.some((field) => !formData[field])) {
-      setError("All required fields must be filled.");
+      setError("Medicine, dosage form, and quantity are required.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const selectedMedicine = medicines.find(
+      (med) => med.id === formData.medicine_id
+    );
+    if (
+      selectedMedicine &&
+      parseInt(formData.quantity) > selectedMedicine.quantity
+    ) {
+      setError(
+        `Quantity exceeds available stock (${selectedMedicine.quantity}).`
+      );
       setIsSubmitting(false);
       return;
     }
 
     try {
       const payload = {
-        ...formData,
+        medicine_id: formData.medicine_id,
+        customer_id: formData.customer_id || null,
+        dosage_form_id: formData.dosage_form_id,
         quantity: parseInt(formData.quantity),
-        price: parseFloat(formData.price),
-        total_amount: parseFloat(formData.total_amount),
+        prescription: formData.prescription,
+        product_name: formData.product_name,
       };
+      console.log("Submitting payload:", JSON.stringify(payload, null, 2));
       const response = sale
         ? await editSale(sale.id, payload)
         : await addSale(payload);
+      console.log("API response:", response);
       onSave(response);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to save sale");
+      console.error("Submission error:", err);
+      setError(
+        err.response?.data?.message || "Failed to save sale: " + err.message
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -124,14 +172,13 @@ const SaleForm = ({ sale, onSave, onCancel }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Customer
+            Customer (Optional)
           </label>
           <select
             name="customer_id"
             value={formData.customer_id}
             onChange={handleChange}
             className="w-full p-2 border rounded"
-            required
             disabled={isSubmitting}
           >
             <option value="">Select Customer</option>
@@ -149,7 +196,7 @@ const SaleForm = ({ sale, onSave, onCancel }) => {
           <select
             name="medicine_id"
             value={formData.medicine_id}
-            onChange={handleChange}
+            onChange={handleMedicineChange}
             className="w-full p-2 border rounded"
             required
             disabled={isSubmitting}
@@ -157,7 +204,7 @@ const SaleForm = ({ sale, onSave, onCancel }) => {
             <option value="">Select Medicine</option>
             {medicines.map((med) => (
               <option key={med.id} value={med.id}>
-                {med.medicine_name}
+                {med.medicine_name} (Stock: {med.quantity})
               </option>
             ))}
           </select>
@@ -169,7 +216,7 @@ const SaleForm = ({ sale, onSave, onCancel }) => {
           <select
             name="dosage_form_id"
             value={formData.dosage_form_id}
-            onChange={handleChange}
+            onChange={handleDosageChange}
             className="w-full p-2 border rounded"
             required
             disabled={isSubmitting}
@@ -193,24 +240,28 @@ const SaleForm = ({ sale, onSave, onCancel }) => {
             onChange={handleChange}
             className="w-full p-2 border rounded"
             required
-            disabled={isSubmitting}
+            disabled={
+              isSubmitting || !formData.medicine_id || !formData.dosage_form_id
+            }
             min="1"
+            placeholder={
+              formData.medicine_id && formData.dosage_form_id
+                ? "Enter quantity"
+                : "Select medicine and dosage first"
+            }
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Price
+            Price (From Medicine)
           </label>
           <input
             type="number"
             name="price"
             value={formData.price}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-            required
-            disabled={isSubmitting}
+            className="w-full p-2 border rounded bg-gray-100"
+            disabled
             step="0.01"
-            min="0"
           />
         </div>
         <div>
@@ -230,17 +281,12 @@ const SaleForm = ({ sale, onSave, onCancel }) => {
           <label className="block text-sm font-medium text-gray-700">
             Payment Method
           </label>
-          <select
-            name="payment_method"
+          <input
+            type="text"
             value={formData.payment_method}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-            disabled={isSubmitting}
-          >
-            <option value="NONE">None</option>
-            <option value="CASH">Cash</option>
-            <option value="CREDIT">Credit</option>
-          </select>
+            className="w-full p-2 border rounded bg-gray-100"
+            disabled
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 flex items-center">
@@ -252,7 +298,7 @@ const SaleForm = ({ sale, onSave, onCancel }) => {
               className="mr-2"
               disabled={isSubmitting}
             />
-            Prescription Required
+            Prescription Provided
           </label>
         </div>
         <div>
@@ -270,15 +316,14 @@ const SaleForm = ({ sale, onSave, onCancel }) => {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Batch Number
+            Batch Number (From Medicine)
           </label>
           <input
             type="text"
             name="product_batch_number"
             value={formData.product_batch_number}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-            disabled={isSubmitting}
+            className="w-full p-2 border rounded bg-gray-100"
+            disabled
           />
         </div>
         <div>

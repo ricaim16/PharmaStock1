@@ -1,83 +1,75 @@
-// src/api/memberApi.js
-import { axiosInstance, axiosFileInstance } from "./axiosInstance";
+import axios from "axios";
 
-// Create a new member
-export const createMember = async (memberData) => {
-  try {
-    const response = await axiosFileInstance.post(`/members/`, memberData);
-    return response.data;
-  } catch (error) {
-    console.error(
-      "Create member failed:",
-      error.response?.data || error.message
-    );
-    throw error.response?.data?.error || error.message;
+export const axiosInstance = axios.create({
+  baseURL: "http://localhost:5000/api",
+  headers: { "Content-Type": "application/json" },
+});
+
+export const axiosFileInstance = axios.create({
+  baseURL: "http://localhost:5000/api",
+  headers: { "Content-Type": "multipart/form-data" },
+});
+
+axiosInstance.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+axiosFileInstance.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && error.config.url !== "/users/login") {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
   }
-};
+);
 
-// Fetch all members
+axiosFileInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && error.config.url !== "/users/login") {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const getAllMembers = async () => {
-  try {
-    const response = await axiosInstance.get(`/members/`);
-    return response.data;
-  } catch (error) {
-    console.error(
-      "Get all members failed:",
-      error.response?.data || error.message
-    );
-    throw error.response?.data?.error || error.message;
-  }
+  const response = await axiosInstance.get("/members/");
+  return response.data;
 };
 
-// Fetch a single member by ID
-export const getMemberById = async (id) => {
-  try {
-    const response = await axiosInstance.get(`/members/${id}`);
-    return response.data;
-  } catch (error) {
-    console.error("Get member failed:", error.response?.data || error.message);
-    throw error.response?.data?.error || error.message;
-  }
+export const createMember = async (memberData) => {
+  const response = await axiosFileInstance.post("/members/", memberData);
+  return response.data;
 };
 
-// Update a member
 export const updateMember = async (id, memberData) => {
-  try {
-    const response = await axiosFileInstance.put(`/members/${id}`, memberData);
-    return response.data;
-  } catch (error) {
-    console.error(
-      "Update member failed:",
-      error.response?.data || error.message
-    );
-    throw error.response?.data?.error || error.message;
-  }
+  const response = await axiosFileInstance.put(`/members/${id}`, memberData);
+  return response.data;
 };
 
-// Update the logged-in member's own profile
 export const updateSelfMember = async (memberData) => {
-  try {
-    const response = await axiosFileInstance.put(`/members/self`, memberData);
-    return response.data;
-  } catch (error) {
-    console.error(
-      "Update self member failed:",
-      error.response?.data || error.message
-    );
-    throw error.response?.data?.error || error.message;
-  }
+  const response = await axiosFileInstance.put("/members/self", memberData);
+  return response.data;
 };
 
-// Delete a member
 export const deleteMember = async (id) => {
-  try {
-    const response = await axiosInstance.delete(`/members/${id}`);
-    return response.data;
-  } catch (error) {
-    console.error(
-      "Delete member failed:",
-      error.response?.data || error.message
-    );
-    throw error.response?.data?.error || error.message;
-  }
+  const response = await axiosInstance.delete(`/members/${id}`);
+  return response.data;
+};
+
+export const getMemberById = async (id) => {
+  const response = await axiosInstance.get(`/members/${id}`);
+  return response.data;
 };

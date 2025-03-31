@@ -1,8 +1,7 @@
-// src/components/CustomerList.jsx
 import { useState, useEffect } from "react";
 import { getAllCustomers, deleteCustomer } from "../api/customerApi";
 import CustomerForm from "./CustomerForm";
-import { Link } from "react-router-dom"; // Add this
+import { Link } from "react-router-dom";
 
 const CustomerList = () => {
   const [customers, setCustomers] = useState([]);
@@ -17,13 +16,18 @@ const CustomerList = () => {
   const fetchCustomers = async () => {
     try {
       const data = await getAllCustomers();
-      setCustomers(data.sort((a, b) => a.name.localeCompare(b.name)));
+      console.log("Raw customer data:", data);
+      const customerArray = Array.isArray(data) ? data : [];
+      setCustomers(customerArray.sort((a, b) => a.name.localeCompare(b.name)));
       setError(null);
     } catch (err) {
-      setError(
-        "Failed to fetch customers: " +
-          (err.response?.data?.message || err.message)
-      );
+      console.error("Fetch Customers Error:", {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+      });
+      setError(err.response?.data?.message || "Failed to fetch customers");
+      setCustomers([]); // Reset to empty array on error
     }
   };
 
@@ -39,10 +43,7 @@ const CustomerList = () => {
         setCustomers(customers.filter((cust) => cust.id !== id));
         setError(null);
       } catch (err) {
-        setError(
-          "Failed to delete customer: " +
-            (err.response?.data?.message || err.message)
-        );
+        setError(err.response?.data?.message || "Failed to delete customer");
       }
     }
   };
@@ -55,7 +56,7 @@ const CustomerList = () => {
     );
     setIsFormOpen(false);
     setSelectedCustomer(null);
-    fetchCustomers();
+    fetchCustomers(); // Refresh the list
   };
 
   return (

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { generateMedicineReport } from "../api/medicineApi";
-import { jsPDF } from "jspdf";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable"; // Import autoTable directly
 
 const MedicineReport = () => {
   const [report, setReport] = useState(null);
@@ -48,36 +49,57 @@ const MedicineReport = () => {
     if (!report) return;
 
     const doc = new jsPDF();
-    doc.setFontSize(12);
-
-    doc.text("Medicine Report", 10, 10);
-    doc.text(`Generated At: ${formatEAT(report.generatedAt)}`, 10, 20);
-
-    doc.text("Winning Products (Top Sellers):", 10, 30);
-    let y = 40;
-    report.winningProducts.forEach((med) => {
-      doc.text(`${med.medicine_name} - Sales: ${med.totalSales}`, 10, y);
-      y += 10;
+    // Apply the autoTable plugin to the jsPDF instance
+    autoTable(doc, {
+      startY: 35,
+      head: [["Medicine Name", "Total Sales"]],
+      body: report.winningProducts.map((med) => [
+        med.medicine_name,
+        med.totalSales.toString(),
+      ]),
+      theme: "grid",
+      styles: { fontSize: 10 },
+      didDrawPage: (data) => {
+        // Add header text before the table
+        doc.setFontSize(16);
+        doc.text("Medicine Report", 10, 10);
+        doc.setFontSize(12);
+        doc.text(`Generated At: ${formatEAT(report.generatedAt)}`, 10, 20);
+        doc.setFontSize(14);
+        doc.text("Winning Products (Top Sellers)", 10, 30);
+      },
     });
 
-    doc.text("Worst-Performing Products (Low Sellers):", 10, y + 10);
-    y += 20;
-    report.worstPerformingProducts.forEach((med) => {
-      doc.text(`${med.medicine_name} - Sales: ${med.totalSales}`, 10, y);
-      y += 10;
+    // Worst-Performing Products (Low Sellers)
+    let yPosition = doc.lastAutoTable.finalY + 10;
+    doc.setFontSize(14);
+    doc.text("Worst-Performing Products (Low Sellers)", 10, yPosition);
+    autoTable(doc, {
+      startY: yPosition + 5,
+      head: [["Medicine Name", "Total Sales"]],
+      body: report.worstPerformingProducts.map((med) => [
+        med.medicine_name,
+        med.totalSales.toString(),
+      ]),
+      theme: "grid",
+      styles: { fontSize: 10 },
     });
 
-    doc.text("Stock Levels:", 10, y + 10);
-    y += 20;
-    report.stockLevels.forEach((med) => {
-      doc.text(
-        `${med.medicine_name} - Quantity: ${med.quantity} - Expiry: ${formatEAT(
-          med.expire_date
-        )} - Created By: ${med.createdBy}`,
-        10,
-        y
-      );
-      y += 10;
+    // Stock Levels
+    yPosition = doc.lastAutoTable.finalY + 10;
+    doc.setFontSize(14);
+    doc.text("Stock Levels", 10, yPosition);
+    autoTable(doc, {
+      startY: yPosition + 5,
+      head: [["Medicine Name", "Quantity", "Expiry", "Created By"]],
+      body: report.stockLevels.map((med) => [
+        med.medicine_name,
+        med.quantity.toString(),
+        formatEAT(med.expire_date),
+        med.createdBy,
+      ]),
+      theme: "grid",
+      styles: { fontSize: 10 },
     });
 
     doc.save(`Medicine_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -135,12 +157,20 @@ const MedicineReport = () => {
                 </tr>
               </thead>
               <tbody>
-                {report.worstPerformingProducts.map((med) => (
-                  <tr key={med.id} className="hover:bg-gray-100">
-                    <td className="border p-2">{med.medicine_name}</td>
-                    <td className="border p-2">{med.totalSales}</td>
+                {report.worstPerformingProducts.length > 0 ? (
+                  report.worstPerformingProducts.map((med) => (
+                    <tr key={med.id} className="hover:bg-gray-100">
+                      <td className="border p-2">{med.medicine_name}</td>
+                      <td className="border p-2">{med.totalSales}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="2" className="border p-2 text-center">
+                      No sales recorded
+                    </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

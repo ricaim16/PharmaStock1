@@ -51,7 +51,6 @@ const UserList = () => {
         <table className="min-w-full bg-white">
           <thead>
             <tr>
-              <th className="py-2 px-4 border-b">ID</th>
               <th className="py-2 px-4 border-b">First Name</th>
               <th className="py-2 px-4 border-b">Last Name</th>
               <th className="py-2 px-4 border-b">Username</th>
@@ -63,7 +62,6 @@ const UserList = () => {
           <tbody>
             {users.map((user) => (
               <tr key={user.id}>
-                <td className="py-2 px-4 border-b">{user.id}</td>
                 <td className="py-2 px-4 border-b">{user.FirstName}</td>
                 <td className="py-2 px-4 border-b">{user.LastName}</td>
                 <td className="py-2 px-4 border-b">{user.username}</td>

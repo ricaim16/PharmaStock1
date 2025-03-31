@@ -8,6 +8,7 @@ const Sidebar = () => {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [isSalesOpen, setIsSalesOpen] = useState(false);
   const [isCustomerOpen, setIsCustomerOpen] = useState(false);
+  const [isSupplierOpen, setIsSupplierOpen] = useState(false); // Added for supplier dropdown
   const location = useLocation();
 
   useEffect(() => {
@@ -29,7 +30,18 @@ const Sidebar = () => {
       isOpen: isInventoryOpen,
       setIsOpen: setIsInventoryOpen,
     },
-    { path: "/supplier-management", label: "Supplier Management" },
+    {
+      path: "/supplier-management",
+      label: "Supplier Management",
+      hasDropdown: true,
+      subItems: [
+        { path: "/supplier-management/suppliers", label: "Supplier List" },
+        { path: "/supplier-management/credits", label: "Supplier Credits" },
+        { path: "/supplier-management/credit-report", label: "Credit Report" },
+      ],
+      isOpen: isSupplierOpen,
+      setIsOpen: setIsSupplierOpen,
+    },
     {
       path: "/sales-management",
       label: "Sales Management",
@@ -49,11 +61,11 @@ const Sidebar = () => {
       subItems: [
         { path: "/customer-management/customers", label: "Customer List" },
         { path: "/customer-management/credits", label: "Customer Credits" },
+        { path: "/customer-management/credit-report", label: "Credit Report" },
       ],
       isOpen: isCustomerOpen,
       setIsOpen: setIsCustomerOpen,
     },
-    { path: "/credit-management", label: "Credit Management" },
     ...(role === "MANAGER"
       ? [
           { path: "/expense-management", label: "Expense Management" },

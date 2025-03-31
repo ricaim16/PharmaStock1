@@ -12,6 +12,12 @@ router.get("/", roleMiddleware(["MANAGER", "EMPLOYEE"]), (req, res) => {
   salesController.getAllSales(req, res);
 });
 
+// Move /report before /:id to prevent route conflict
+router.get("/report", roleMiddleware(["MANAGER", "EMPLOYEE"]), (req, res) => {
+  console.log("GET /api/sales/report hit", req.query);
+  salesController.generateSalesReport(req, res);
+});
+
 router.get("/:id", roleMiddleware(["MANAGER", "EMPLOYEE"]), (req, res) => {
   console.log(`GET /api/sales/${req.params.id} hit`);
   salesController.getSaleById(req, res);
@@ -30,11 +36,6 @@ router.put("/:id", roleMiddleware(["MANAGER"]), (req, res) => {
 router.delete("/:id", roleMiddleware(["MANAGER"]), (req, res) => {
   console.log(`DELETE /api/sales/${req.params.id} hit`);
   salesController.deleteSale(req, res);
-});
-
-router.get("/report", roleMiddleware(["MANAGER", "EMPLOYEE"]), (req, res) => {
-  console.log("GET /api/sales/report hit", req.query);
-  salesController.generateSalesReport(req, res);
 });
 
 export default router;

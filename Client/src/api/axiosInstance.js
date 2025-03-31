@@ -7,7 +7,6 @@ export const axiosInstance = axios.create({
 
 export const axiosFileInstance = axios.create({
   baseURL: "http://localhost:5000/api",
-  headers: { "Content-Type": "multipart/form-data" },
 });
 
 axiosInstance.interceptors.request.use((config) => {
@@ -21,10 +20,18 @@ axiosInstance.interceptors.request.use((config) => {
 
 axiosFileInstance.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
-  console.log("Request:", config.method, config.url, "Token:", token);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  console.log(
+    "File Request:",
+    config.method,
+    config.url,
+    "Headers:",
+    config.headers,
+    "Data:",
+    config.data instanceof FormData ? [...config.data.entries()] : config.data
+  );
   return config;
 });
 

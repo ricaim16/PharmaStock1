@@ -38,6 +38,13 @@ const CustomerForm = ({ customer, onSave, onCancel }) => {
       return;
     }
 
+    // Basic phone format check before sending
+    if (!/^\+?\d{9,13}$/.test(formData.phone)) {
+      setError("Phone must be 9-13 digits, optionally starting with +.");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       console.log("Submitting customer data:", formData);
       let response;
@@ -49,11 +56,11 @@ const CustomerForm = ({ customer, onSave, onCancel }) => {
       console.log("Customer save response:", response);
       onSave(response.customer || response);
     } catch (err) {
-      console.error(
-        "Error saving customer:",
-        err.response?.status,
-        err.response?.data || err.message
-      );
+      console.error("Error saving customer:", {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+      });
       setError(err.response?.data?.message || "Failed to save customer");
     } finally {
       setIsSubmitting(false);

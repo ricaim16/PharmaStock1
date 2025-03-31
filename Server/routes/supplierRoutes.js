@@ -1,3 +1,4 @@
+// routers/supplierRoutes.js
 import express from "express";
 import { supplierController } from "../controllers/supplierController.js";
 import { authMiddleware, roleMiddleware } from "../middlewares/auth.js";
@@ -5,106 +6,99 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
-const router = express.Router();
-
-// Helper to get __dirname in ESM
 const __filename = new URL(import.meta.url).pathname;
 const __dirname = path.dirname(
   __filename.startsWith("/") ? __filename.slice(1) : __filename
 );
 
-// Multer configuration (aligned with memberRoutes.js)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, "../uploads");
-    try {
-      if (!fs.existsSync(uploadPath)) {
-        fs.mkdirSync(uploadPath, { recursive: true });
-        console.log(`Created uploads directory at: ${uploadPath}`);
-      }
-      cb(null, uploadPath);
-    } catch (error) {
-      console.error(
-        `Error creating uploads directory at ${uploadPath}:`,
-        error
-      );
-      cb(error);
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
     }
+    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`); // e.g., 1742130477191-photo.png
+    cb(null, `${Date.now()}-${file.originalname}`);
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+}).single("payment_file");
 
-// Supplier routes
+const logRawRequest = (req, res, next) => {
+  console.log("Raw request headers:", req.headers);
+  console.log("Raw request body (before multer):", req.body);
+  next();
+};
+
+const router = express.Router();
+
+router.use(authMiddleware);
+
+// Supplier Routes
 router.get(
   "/",
-  authMiddleware,
   roleMiddleware(["MANAGER", "EMPLOYEE"]),
   supplierController.getAllSuppliers
 );
-
+router.get(
+  "/:id",
+  roleMiddleware(["MANAGER", "EMPLOYEE"]),
+  supplierController.getSupplierById
+);
 router.post(
-  "",
-  authMiddleware,
-  roleMiddleware(["MANAGER"]),
-  upload.single("photo"), // Single photo upload
+  "/",
+  roleMiddleware(["MANAGER", "EMPLOYEE"]),
   supplierController.addSupplier
 );
-
 router.put(
   "/:id",
-  authMiddleware,
   roleMiddleware(["MANAGER"]),
-  upload.single("photo"),
   supplierController.editSupplier
 );
-
 router.delete(
   "/:id",
-  authMiddleware,
   roleMiddleware(["MANAGER"]),
   supplierController.deleteSupplier
 );
 
-// Supplier credit routes
-router.post(
-  "/credits",
-  authMiddleware,
-  roleMiddleware(["MANAGER", "EMPLOYEE"]),
-  upload.single("payment_file"),
-  supplierController.addSupplierCredit
-);
-
-router.put(
-  "/credits/:id",
-  authMiddleware,
-  roleMiddleware(["MANAGER", "EMPLOYEE"]),
-  upload.single("payment_file"),
-  supplierController.editSupplierCredit
-);
-
-router.delete(
-  "/credits/:id",
-  authMiddleware,
-  roleMiddleware(["MANAGER"]),
-  supplierController.deleteSupplierCredit
-);
-
+// Supplier Credit Routes
 router.get(
-  "/credits/supplier/:supplier_id",
-  authMiddleware,
+  "/credits",
+  roleMiddleware(["MANAGER", "EMPLOYEE"]),
+  supplierController.getAllSupplierCredits
+);
+router.get(
+  "/:supplier_id/credits",
   roleMiddleware(["MANAGER", "EMPLOYEE"]),
   supplierController.getSupplierCredits
 );
-
 router.get(
   "/credits/report",
-  authMiddleware,
-  roleMiddleware(["MANAGER", "EMPLOYEE"]),
+  roleMiddleware(["MANAGER"]),
   supplierController.generateCreditReport
+);
+router.post(
+  "/credits",
+  roleMiddleware(["MANAGER"]),
+  logRawRequest,
+  upload,
+  supplierController.addSupplierCredit
+);
+router.put(
+  "/credits/:id",
+  roleMiddleware(["MANAGER"]),
+  upload,
+  supplierController.editSupplierCredit
+);
+router.delete(
+  "/credits/:id",
+  roleMiddleware(["MANAGER"]),
+  supplierController.deleteSupplierCredit
 );
 
 export default router;

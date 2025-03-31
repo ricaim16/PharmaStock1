@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { getAllSales, deleteSale } from "../api/salesApi";
 import SaleForm from "./SaleForm";
+import { jwtDecode } from "jwt-decode";
 
 const SaleList = () => {
   const [sales, setSales] = useState([]);
   const [selectedSale, setSelectedSale] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [error, setError] = useState(null);
+  const [userRole, setUserRole] = useState(null);
 
   const formatEAT = (date) => {
     const options = {
@@ -22,14 +24,28 @@ const SaleList = () => {
   };
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setError("No authentication token found. Please log in.");
+      return;
+    }
+    try {
+      const decoded = jwtDecode(token);
+      setUserRole(decoded.role.toUpperCase());
+      console.log("Decoded token:", decoded); // Log token details
+    } catch (err) {
+      setError("Invalid token format. Please log in again.");
+      return;
+    }
     fetchSales();
   }, []);
 
   const fetchSales = async () => {
     try {
       const data = await getAllSales();
+      console.log("Fetched sales:", JSON.stringify(data, null, 2)); // Detailed log
       setSales(
-        data.sort((a, b) => new Date(b.sealed_date) - new Date(a.sealed_date))
+        data.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)) // Sort by updated_at instead
       );
       setError(null);
     } catch (err) {
@@ -60,6 +76,7 @@ const SaleList = () => {
   };
 
   const handleSave = (newSale) => {
+    console.log("Saved sale:", JSON.stringify(newSale, null, 2)); // Detailed log
     setSales((prev) =>
       selectedSale
         ? prev.map((sale) => (sale.id === newSale.id ? newSale : sale))
@@ -67,7 +84,7 @@ const SaleList = () => {
     );
     setIsFormOpen(false);
     setSelectedSale(null);
-    fetchSales();
+    fetchSales(); // Refresh the list
   };
 
   return (
@@ -101,28 +118,50 @@ const SaleList = () => {
               <th className="border p-2">Prescription</th>
               <th className="border p-2">Product Name</th>
               <th className="border p-2">Batch No</th>
-              <th className="border p-2">Date</th>
+              <th className="border p-2">Created At</th>
+              <th className="border p-2">Updated At</th>
+              {userRole === "MANAGER" && (
+                <th className="border p-2">Created By</th>
+              )}
+              {userRole === "MANAGER" && (
+                <th className="border p-2">Updated By</th>
+              )}
               <th className="border p-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {sales.map((sale) => (
               <tr key={sale.id} className="hover:bg-gray-100">
-                <td className="border p-2">{sale.customer.name}</td>
-                <td className="border p-2">{sale.medicine.medicine_name}</td>
-                <td className="border p-2">{sale.dosage_form.name}</td>
-                <td className="border p-2">{sale.quantity}</td>
-                <td className="border p-2">{sale.price}</td>
-                <td className="border p-2">{sale.total_amount}</td>
-                <td className="border p-2">{sale.payment_method}</td>
+                <td className="border p-2">{sale.customer?.name || "N/A"}</td>
+                <td className="border p-2">
+                  {sale.medicine?.medicine_name || "Unknown"}
+                </td>
+                <td className="border p-2">
+                  {sale.dosage_form?.name || "N/A"}
+                </td>
+                <td className="border p-2">{sale.quantity || 0}</td>
+                <td className="border p-2">{sale.price || 0}</td>
+                <td className="border p-2">{sale.total_amount || 0}</td>
+                <td className="border p-2">{sale.payment_method || "N/A"}</td>
                 <td className="border p-2">
                   {sale.prescription ? "Yes" : "No"}
                 </td>
-                <td className="border p-2">{sale.product_name || "-"}</td>
+                <td className="border p-2">{sale.product_name || "N/A"}</td>
                 <td className="border p-2">
-                  {sale.product_batch_number || "-"}
+                  {sale.product_batch_number || "N/A"}
                 </td>
-                <td className="border p-2">{formatEAT(sale.sealed_date)}</td>
+                <td className="border p-2">{formatEAT(sale.created_at)}</td>
+                <td className="border p-2">{formatEAT(sale.updated_at)}</td>
+                {userRole === "MANAGER" && (
+                  <td className="border p-2">
+                    {sale.createdBy?.username || "N/A"}
+                  </td>
+                )}
+                {userRole === "MANAGER" && (
+                  <td className="border p-2">
+                    {sale.updatedBy?.username || "N/A"}
+                  </td>
+                )}
                 <td className="border p-2">
                   <button
                     onClick={() => handleEdit(sale)}

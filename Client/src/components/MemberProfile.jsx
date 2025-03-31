@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { getAllMembers, updateSelfMember } from "../api/memberApi";
 
 const MemberProfile = ({ isFullScreen = false, onClose }) => {
@@ -13,6 +13,7 @@ const MemberProfile = ({ isFullScreen = false, onClose }) => {
         const data = await getAllMembers();
         if (data.members && data.members.length > 0) {
           const employeeProfile = data.members[0];
+          console.log("MemberProfile member:", employeeProfile); // Debug log
           setMember(employeeProfile);
           setFormData({
             FirstName: employeeProfile.FirstName || "",
@@ -24,7 +25,7 @@ const MemberProfile = ({ isFullScreen = false, onClose }) => {
               : "",
             address: employeeProfile.address || "",
             biography: employeeProfile.biography || "",
-            photo: null,
+            Photo: null, // Changed from photo to Photo
             certificate: null,
             username: localStorage.getItem("username") || "",
             password: "",
@@ -33,7 +34,8 @@ const MemberProfile = ({ isFullScreen = false, onClose }) => {
           setError("No member profile found.");
         }
       } catch (err) {
-        setError("Failed to load member profile.");
+        setError(err.message || "Failed to load member profile.");
+        console.error("Fetch member profile error:", err);
       }
     };
     fetchMemberProfile();
@@ -45,28 +47,37 @@ const MemberProfile = ({ isFullScreen = false, onClose }) => {
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
+    const fieldName = name === "Photo" ? "Photo" : name; // Changed from photo to Photo
     setFormData((prev) => ({
       ...prev,
-      [name]: files ? files[0] : value,
+      [fieldName]: files ? files[0] : value,
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+
     const data = new FormData();
-    Object.keys(formData).forEach((key) => {
-      if (formData[key] !== null && formData[key] !== "") {
-        data.append(key, formData[key]);
+    Object.entries(formData).forEach(([key, value]) => {
+      if (value !== null && value !== "" && value !== undefined) {
+        data.append(key, value);
       }
     });
 
     try {
       const response = await updateSelfMember(data);
       setMember(response.member);
+      setFormData((prev) => ({
+        ...prev,
+        Photo: null, // Changed from photo to Photo
+        certificate: null,
+      }));
       setIsEditing(false);
-      localStorage.setItem("username", formData.username); // Update username in localStorage
+      localStorage.setItem("username", formData.username);
     } catch (err) {
       setError(err.response?.data?.error || "Failed to update profile");
+      console.error("Update self error:", err.response?.data || err);
     }
   };
 
@@ -78,316 +89,246 @@ const MemberProfile = ({ isFullScreen = false, onClose }) => {
     return <div className="text-center mt-4">Loading...</div>;
   }
 
-  const containerClass = isFullScreen
-    ? "fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50"
-    : "max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg";
+  const baseUrl = "http://localhost:5000/"; // Adjust based on your backend URL
 
   return (
-    <div className={containerClass}>
-      <div className="bg-white p-6 rounded-lg shadow-lg w-[80%] max-w-4xl relative">
-        {isFullScreen && (
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 text-2xl font-bold"
-          >
-            ✕
-          </button>
-        )}
-        <div className="flex justify-between items-center mb-6">
-          <button
-            onClick={handleEditToggle}
-            className="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Edit Profile
-          </button>
-          <h2 className="text-2xl font-bold text-center flex-1">My Profile</h2>
-        </div>
-
-        {isEditing ? (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-60">
-            <div className="bg-white p-6 rounded-lg shadow-lg w-[80%] max-w-4xl h-[90vh] relative">
-              <button
-                onClick={handleEditToggle}
-                className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 text-2xl font-bold"
+    <div
+      className={`${
+        isFullScreen ? "fixed inset-0 bg-white p-4 overflow-auto" : "p-4"
+      }`}
+    >
+      <h2 className="text-2xl font-bold mb-4">Member Profile</h2>
+      {isEditing ? (
+        <form onSubmit={handleSubmit} encType="multipart/form-data">
+          {error && <div className="text-red-500 mb-4">{error}</div>}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                First Name
+              </label>
+              <input
+                type="text"
+                name="FirstName"
+                value={formData.FirstName}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Last Name
+              </label>
+              <input
+                type="text"
+                name="LastName"
+                value={formData.LastName}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Phone
+              </label>
+              <input
+                type="text"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Gender
+              </label>
+              <select
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
               >
-                ✕
-              </button>
-              <h2 className="text-2xl font-bold mb-6 text-center">
-                Edit Profile
-              </h2>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {error && <p className="text-red-500">{error}</p>}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-                      name="FirstName"
-                      value={formData.FirstName}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      name="LastName"
-                      value={formData.LastName}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Username
-                    </label>
-                    <input
-                      type="text"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Phone
-                    </label>
-                    <input
-                      type="text"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Gender
-                    </label>
-                    <select
-                      name="gender"
-                      value={formData.gender}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Gender</option>
-                      <option value="MALE">Male</option>
-                      <option value="FEMALE">Female</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Date of Birth
-                    </label>
-                    <input
-                      type="date"
-                      name="dob"
-                      value={formData.dob}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Address
-                    </label>
-                    <input
-                      type="text"
-                      name="address"
-                      value={formData.address}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Biography
-                    </label>
-                    <textarea
-                      name="biography"
-                      value={formData.biography}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Photo
-                    </label>
-                    <input
-                      type="file"
-                      name="photo"
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    {member.photo && (
-                      <a
-                        href={`http://localhost:5000/uploads/${member.photo
-                          .split("\\")
-                          .pop()}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 mt-2 block"
-                      >
-                        View Current Photo
-                      </a>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Certificate
-                    </label>
-                    <input
-                      type="file"
-                      name="certificate"
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    {member.certificate && (
-                      <a
-                        href={`http://localhost:5000/uploads/${member.certificate
-                          .split("\\")
-                          .pop()}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 mt-2 block"
-                      >
-                        View Current Certificate
-                      </a>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      New Password (optional)
-                    </label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 mt-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                <option value="">Select Gender</option>
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Date of Birth
+              </label>
+              <input
+                type="date"
+                name="dob"
+                value={formData.dob}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Address
+              </label>
+              <input
+                type="text"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Biography
+              </label>
+              <textarea
+                name="biography"
+                value={formData.biography}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Certificate
+              </label>
+              <input
+                type="file"
+                name="certificate"
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+                accept="image/jpeg,image/png,application/pdf"
+              />
+              {member.certificate && (
+                <div className="mt-2 w-48 h-48 overflow-hidden">
+                  <img
+                    src={`${baseUrl}${member.certificate}`}
+                    alt="Certificate"
+                    className="w-full h-full object-contain"
+                    onError={(e) =>
+                      console.error("Failed to load certificate:", e)
+                    }
+                  />
                 </div>
-                <div className="flex justify-end space-x-4 mt-6">
-                  <button
-                    type="button"
-                    onClick={handleEditToggle}
-                    className="py-2 px-4 bg-gray-600 text-white rounded-md hover:bg-gray-700"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  >
-                    Save Changes
-                  </button>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Photo
+              </label>
+              <input
+                type="file"
+                name="Photo" // Changed from photo to Photo
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+                accept="image/jpeg,image/png"
+              />
+              {member.Photo && ( // Changed from member.photo to member.Photo
+                <div className="mt-2 w-48 h-48 overflow-hidden">
+                  <img
+                    src={`${baseUrl}${member.Photo}`} // Changed to member.Photo
+                    alt="Photo"
+                    className="w-full h-full object-contain"
+                    onError={(e) => console.error("Failed to load photo:", e)}
+                  />
                 </div>
-              </form>
+              )}
             </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <p>
-                <strong>Username:</strong> {formData.username}
-              </p>
-              <p>
-                <strong>First Name:</strong> {member.FirstName}
-              </p>
-              <p>
-                <strong>Last Name:</strong> {member.LastName}
-              </p>
-              <p>
-                <strong>Phone:</strong> {member.phone || "N/A"}
-              </p>
-              <p>
-                <strong>Role:</strong> {member.role}
-              </p>
-              <p>
-                <strong>Position:</strong> {member.position}
-              </p>
-              <p>
-                <strong>Salary:</strong> {member.salary}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p>
-                <strong>Joining Date:</strong>{" "}
-                {new Date(member.joining_date).toISOString().split("T")[0]}
-              </p>
-              <p>
-                <strong>Status:</strong>{" "}
-                <span
-                  className={
-                    member.status === "ACTIVE"
-                      ? "text-green-600"
-                      : "text-red-600"
+          <div className="flex space-x-4 mt-4">
+            <button
+              type="submit"
+              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={handleEditToggle}
+              className="bg-gray-500 text-white p-2 rounded hover:bg-gray-600"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="space-y-4">
+          <p>
+            <strong>First Name:</strong> {member.FirstName}
+          </p>
+          <p>
+            <strong>Last Name:</strong> {member.LastName}
+          </p>
+          <p>
+            <strong>Phone:</strong> {member.phone || "N/A"}
+          </p>
+          <p>
+            <strong>Gender:</strong> {member.gender || "N/A"}
+          </p>
+          <p>
+            <strong>Date of Birth:</strong>{" "}
+            {member.dob ? new Date(member.dob).toLocaleDateString() : "N/A"}
+          </p>
+          <p>
+            <strong>Address:</strong> {member.address || "N/A"}
+          </p>
+          <p>
+            <strong>Biography:</strong> {member.biography || "N/A"}
+          </p>
+          <div>
+            <p>
+              <strong>Certificate:</strong>
+            </p>
+            {member.certificate ? (
+              <div className="mt-2 w-48 h-48 overflow-hidden">
+                <img
+                  src={`${baseUrl}${member.certificate}`}
+                  alt="Certificate"
+                  className="w-full h-full object-contain"
+                  onError={(e) =>
+                    console.error("Failed to load certificate:", e)
                   }
-                >
-                  {member.status}
-                </span>
-              </p>
-              <p>
-                <strong>Gender:</strong> {member.gender || "N/A"}
-              </p>
-              <p>
-                <strong>Date of Birth:</strong>{" "}
-                {member.dob
-                  ? new Date(member.dob).toISOString().split("T")[0]
-                  : "N/A"}
-              </p>
-              <p>
-                <strong>Address:</strong> {member.address || "N/A"}
-              </p>
-              <p>
-                <strong>Biography:</strong> {member.biography || "N/A"}
-              </p>
-              <p>
-                <strong>Photo:</strong>{" "}
-                {member.photo ? (
-                  <a
-                    href={`http://localhost:5000/uploads/${member.photo
-                      .split("\\")
-                      .pop()}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600"
-                  >
-                    View Photo
-                  </a>
-                ) : (
-                  "N/A"
-                )}
-              </p>
-              <p>
-                <strong>Certificate:</strong>{" "}
-                {member.certificate ? (
-                  <a
-                    href={`http://localhost:5000/uploads/${member.certificate
-                      .split("\\")
-                      .pop()}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600"
-                  >
-                    View Certificate
-                  </a>
-                ) : (
-                  "N/A"
-                )}
-              </p>
-            </div>
+                />
+              </div>
+            ) : (
+              <p>N/A</p>
+            )}
           </div>
-        )}
-      </div>
+          <div>
+            <p>
+              <strong>Photo:</strong>
+            </p>
+            {member.Photo ? ( // Changed from member.photo to member.Photo
+              <div className="mt-2 w-48 h-48 overflow-hidden">
+                <img
+                  src={`${baseUrl}${member.Photo}`} // Changed to member.Photo
+                  alt="Photo"
+                  className="w-full h-full object-contain"
+                  onError={(e) => console.error("Failed to load photo:", e)}
+                />
+              </div>
+            ) : (
+              <p>N/A</p>
+            )}
+          </div>
+          <div className="flex space-x-4">
+            <button
+              onClick={handleEditToggle}
+              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+            >
+              Edit
+            </button>
+            {isFullScreen && onClose && (
+              <button
+                onClick={onClose}
+                className="bg-gray-500 text-white p-2 rounded hover:bg-gray-600"
+              >
+                Close
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

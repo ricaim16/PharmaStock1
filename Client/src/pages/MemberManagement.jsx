@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import MemberForm from "../components/MemberForm";
 import MemberList from "../components/MemberList";
-import { getToken, getUserRole } from "../utils/auth"; // Removed getAllUsers from here
+import { getToken, getUserRole } from "../utils/auth";
 import { getAllUsers } from "../api/userApi";
 
 const MemberManagement = () => {
@@ -12,6 +12,8 @@ const MemberManagement = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true); // Added to handle fetch state
+  const [error, setError] = useState(null); // Added for error feedback
 
   useEffect(() => {
     if (!getToken()) {
@@ -21,10 +23,14 @@ const MemberManagement = () => {
     } else {
       const fetchUsers = async () => {
         try {
+          setLoading(true);
           const data = await getAllUsers();
           setUsers(data.users || []);
         } catch (error) {
           console.error("Failed to fetch users:", error);
+          setError("Failed to load users. Please try again later.");
+        } finally {
+          setLoading(false);
         }
       };
       fetchUsers();
@@ -44,7 +50,7 @@ const MemberManagement = () => {
 
   const handleClose = () => {
     setIsFormOpen(false);
-    setSelectedMember(null); // Reset selected member when closing
+    setSelectedMember(null);
   };
 
   return (
@@ -60,16 +66,22 @@ const MemberManagement = () => {
               setSelectedMember(null);
               setIsFormOpen(true);
             }}
-            className="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-300"
+            className="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-300 disabled:opacity-50"
+            disabled={loading || error} // Disable if loading or error
           >
             Create Member
           </button>
         </div>
-        <MemberList onEdit={handleEdit} />
+        {loading ? (
+          <p className="text-gray-600">Loading members...</p>
+        ) : error ? (
+          <p className="text-red-500">{error}</p>
+        ) : (
+          <MemberList onEdit={handleEdit} />
+        )}
         {isFormOpen && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl relative">
-              {/* Optional: Keep this close button if you want it in the modal overlay */}
               <button
                 onClick={handleClose}
                 className="absolute top-2 right-2 text-gray-600 hover:text-gray-800"
@@ -80,7 +92,7 @@ const MemberManagement = () => {
                 member={selectedMember}
                 onMemberSaved={handleMemberSaved}
                 users={users}
-                onClose={handleClose} // Pass the onClose prop to MemberForm
+                onClose={handleClose}
               />
             </div>
           </div>
