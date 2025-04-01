@@ -1,4 +1,3 @@
-// src/components/Sidebar.jsx
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { getUserRole } from "../utils/auth";
@@ -8,7 +7,9 @@ const Sidebar = () => {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [isSalesOpen, setIsSalesOpen] = useState(false);
   const [isCustomerOpen, setIsCustomerOpen] = useState(false);
-  const [isSupplierOpen, setIsSupplierOpen] = useState(false); // Added for supplier dropdown
+  const [isSupplierOpen, setIsSupplierOpen] = useState(false);
+  const [isReturnsOpen, setIsReturnsOpen] = useState(false);
+  const [isExpenseOpen, setIsExpenseOpen] = useState(false); // Added
   const location = useLocation();
 
   useEffect(() => {
@@ -53,7 +54,16 @@ const Sidebar = () => {
       isOpen: isSalesOpen,
       setIsOpen: setIsSalesOpen,
     },
-    { path: "/return-management", label: "Return Management" },
+    {
+      path: "/returns-management",
+      label: "Returns Management",
+      hasDropdown: true,
+      subItems: [
+        { path: "/returns-management/returns", label: "Returns List" },
+      ],
+      isOpen: isReturnsOpen,
+      setIsOpen: setIsReturnsOpen,
+    },
     {
       path: "/customer-management",
       label: "Customer Management",
@@ -66,13 +76,28 @@ const Sidebar = () => {
       isOpen: isCustomerOpen,
       setIsOpen: setIsCustomerOpen,
     },
-    ...(role === "MANAGER"
+    ...(role === "MANAGER" || role === "PHARMACIST"
       ? [
-          { path: "/expense-management", label: "Expense Management" },
-          { path: "/member-management", label: "Member Management" },
-          { path: "/user-management", label: "User Management" },
-          { path: "/okr", label: "OKR" },
-          { path: "/predictive-analysis", label: "Predictive Analysis" },
+          {
+            path: "/expense-management",
+            label: "Expense Management",
+            hasDropdown: true,
+            subItems: [
+              
+              { path: "/expense-management/list", label: "Expense List" },
+              { path: "/expense-management/report", label: "Expense Report" },
+            ],
+            isOpen: isExpenseOpen,
+            setIsOpen: setIsExpenseOpen,
+          },
+          ...(role === "MANAGER"
+            ? [
+                { path: "/member-management", label: "Member Management" },
+                { path: "/user-management", label: "User Management" },
+                { path: "/okr", label: "OKR" },
+                { path: "/predictive-analysis", label: "Predictive Analysis" },
+              ]
+            : []),
         ]
       : []),
     { path: "/notifications", label: "Notifications" },

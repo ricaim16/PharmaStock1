@@ -7,12 +7,14 @@ import UserManagement from "./pages/UserManagement";
 import MemberManagement from "./pages/MemberManagement";
 import SupplierManagement from "./pages/SupplierManagement";
 import SupplierCreditManagement from "./pages/SupplierCreditManagement";
-import SupplierCreditReport from "./components/SupplierCreditReport"; // Add SupplierCreditReport
+import SupplierCreditReport from "./components/SupplierCreditReport";
 import InventoryManagement from "./pages/InventoryManagement";
 import CustomerManagement from "./pages/CustomerManagement";
 import CustomerCreditManagement from "./pages/CustomerCreditManagement";
-import CreditReport from "./components/CreditReport"; // Customer CreditReport
+import CreditReport from "./components/CreditReport";
 import SalesManagement from "./pages/SalesManagement";
+import ReturnsManagement from "./pages/ReturnsManagement";
+import ExpenseManagement from "./pages/ExpenseManagement";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -110,6 +112,23 @@ function App() {
             element={
               <ProtectedRoute>
                 <SalesManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/returns-management/*"
+            element={
+              <ProtectedRoute>
+                <ReturnsManagement />
+              </ProtectedRoute>
+            }
+          />
+          {/* Expense Management Routes */}
+          <Route
+            path="/expense-management/*"
+            element={
+              <ProtectedRoute allowedRoles={["PHARMACIST", "MANAGER"]}>
+                <ExpenseManagement />
               </ProtectedRoute>
             }
           />
