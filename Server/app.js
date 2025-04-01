@@ -7,7 +7,9 @@ import categoryRoutes from "./routes/categoryRoutes.js";
 import dosageFormRoutes from "./routes/dosageFormRoutes.js";
 import medicineRoutes from "./routes/medicineRoutes.js";
 import salesRoutes from "./routes/salesRoutes.js";
-import customerRoutes from "./routes/customerRoutes.js"; // Updated import
+import customerRoutes from "./routes/customerRoutes.js";
+import returnsRoutes from "./routes/returnsRoutes.js";
+import expenseRoutes from "./routes/expenseRouter.js"; // Add this import
 import { errorHandler } from "./middlewares/auth.js";
 
 const app = express();
@@ -29,7 +31,9 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/dosage-forms", dosageFormRoutes);
 app.use("/api/medicines", medicineRoutes);
 app.use("/api/sales", salesRoutes);
-app.use("/api/customers", customerRoutes); // Updated to use customerRoutes
+app.use("/api/customers", customerRoutes);
+app.use("/api/returns", returnsRoutes);
+app.use("/api/expenses", expenseRoutes); // Add this line to mount expense routes
 console.log("All routes mounted");
 
 // Log all incoming requests for debugging
