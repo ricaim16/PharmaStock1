@@ -1,4 +1,3 @@
-// src/App.jsx
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import Login from "./pages/Login";
@@ -17,6 +16,7 @@ import ReturnsManagement from "./pages/ReturnsManagement";
 import ExpenseManagement from "./pages/ExpenseManagement";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
+import OKRManagement from "./pages/OKRManagement";
 
 function App() {
   return (
@@ -132,6 +132,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* OKR Management Routes */}
+          <Route
+            path="/okr/*"
+            element={
+              <ProtectedRoute allowedRoles={["MANAGER"]}>
+                <OKRManagement />
+              </ProtectedRoute>
+            }
+          />
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>

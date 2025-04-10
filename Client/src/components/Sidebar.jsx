@@ -9,7 +9,8 @@ const Sidebar = () => {
   const [isCustomerOpen, setIsCustomerOpen] = useState(false);
   const [isSupplierOpen, setIsSupplierOpen] = useState(false);
   const [isReturnsOpen, setIsReturnsOpen] = useState(false);
-  const [isExpenseOpen, setIsExpenseOpen] = useState(false); // Added
+  const [isExpenseOpen, setIsExpenseOpen] = useState(false);
+  const [isOKROpen, setIsOKROpen] = useState(false); // Added for OKR dropdown
   const location = useLocation();
 
   useEffect(() => {
@@ -83,7 +84,6 @@ const Sidebar = () => {
             label: "Expense Management",
             hasDropdown: true,
             subItems: [
-              
               { path: "/expense-management/list", label: "Expense List" },
               { path: "/expense-management/report", label: "Expense Report" },
             ],
@@ -94,7 +94,18 @@ const Sidebar = () => {
             ? [
                 { path: "/member-management", label: "Member Management" },
                 { path: "/user-management", label: "User Management" },
-                { path: "/okr", label: "OKR" },
+                {
+                  path: "/okr",
+                  label: "OKR",
+                  hasDropdown: true,
+                  subItems: [
+                    { path: "/okr/objectives", label: "Objectives" },
+                    { path: "/okr/key-results", label: "Key Results" },
+                    { path: "/okr/report", label: "OKR Report" },
+                  ],
+                  isOpen: isOKROpen,
+                  setIsOpen: setIsOKROpen,
+                },
                 { path: "/predictive-analysis", label: "Predictive Analysis" },
               ]
             : []),
